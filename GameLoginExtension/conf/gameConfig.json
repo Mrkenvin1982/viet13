@@ -1,0 +1,14 @@
+{
+    "pointGameList": [
+        {"serviceId":3,"moneyType":1,"platform":"all","version":"all","bundle":"all"},
+		{"serviceId":4,"moneyType":1,"platform":"all","version":"all","bundle":"all"},
+		{"serviceId":7,"moneyType":1,"platform":"all","version":"all","bundle":"all"},
+        {"serviceId":9,"moneyType":1,"platform":"all","version":"all","bundle":"all"}
+        ],
+	"moneyGameList": [
+        {"serviceId":3,"moneyType":2,"platform":"all","version":"all","bundle":"all"},
+		{"serviceId":4,"moneyType":2,"platform":"all","version":"all","bundle":"all"},
+		{"serviceId":7,"moneyType":2,"platform":"all","version":"all","bundle":"all"},
+        {"serviceId":9,"moneyType":2,"platform":"all","version":"all","bundle":"all"}
+        ]
+}

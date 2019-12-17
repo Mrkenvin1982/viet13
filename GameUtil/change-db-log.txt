@@ -1,0 +1,14 @@
+************************************************************************
+
+#changelog 10/03/2017
+
+CREATE TABLE `sfs_board_user` (
+	`user_id` INT(11) NOT NULL,
+	`money` BIGINT(20) NOT NULL DEFAULT '0',
+	`last_update` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+	`created_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`user_id`)
+)
+COLLATE='utf8_general_ci'
+ENGINE=InnoDB
+;

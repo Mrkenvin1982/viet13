@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-3.5.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <group>
+        <name>Z88Casino</name>
+    </group>
+
+    <network>
+        <port auto-increment="true">5701</port>
+        <join>
+            <multicast enabled="false"/>
+            <tcp-ip enabled="true">
+                <member>127.0.0.1</member>
+            </tcp-ip>
+        </join>
+    </network>
+
+	<map name="ActiveUserList">
+        <backup-count>0</backup-count>
+		<statistics-enabled>false</statistics-enabled>
+    </map>
+	
+	<map name="UserStateList">
+        <backup-count>0</backup-count>
+		<statistics-enabled>false</statistics-enabled>
+    </map>
+	
+	<map name="UserLoginTokenList">
+        <backup-count>0</backup-count>
+		<statistics-enabled>false</statistics-enabled>
+    </map>
+	
+	<map name="PlayingBoardOfUser">
+        <backup-count>0</backup-count>
+		<statistics-enabled>false</statistics-enabled>
+    </map>
+
+	<map name="BoardList">
+        <backup-count>0</backup-count>
+		<statistics-enabled>false</statistics-enabled>
+    </map>
+
+	<properties>
+        <property name="hazelcast.logging.type">slf4j</property>
+    </properties>
+
+</hazelcast>

@@ -1,0 +1,11 @@
+image: maven:3-jdk-7
+
+build:
+  script: 
+  - ant -buildfile /data/build.xml
+
+  artifacts:
+    paths:
+    - public
+  only:
+  - master

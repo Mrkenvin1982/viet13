@@ -66,13 +66,13 @@ public class LoginExt extends SFSExtension{
         Utils.init(getApi());
         addEventHandler();
         Database.instance.init(getParentZone().getDBManager());
-        initQueue();
+//        initQueue();
         createLobbyRoom();
         SFSConfig.init(getParentZone());
         initHazelcast();
-        logCCU();   
+//        logCCU();   
         //loa từ file config
-        TournamentManager.getInstance().initAllTournaments();
+//        TournamentManager.getInstance().initAllTournaments();
         trace("LoginExt init done.");
     }
     

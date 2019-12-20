@@ -7,60 +7,41 @@ package game.vn.login.handler;
 
 import com.smartfoxserver.v2.core.ISFSEvent;
 import com.smartfoxserver.v2.core.SFSEventParam;
-import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSArray;
 import com.smartfoxserver.v2.entities.data.SFSObject;
-import com.smartfoxserver.v2.entities.match.BoolMatch;
-import com.smartfoxserver.v2.entities.match.MatchExpression;
-import com.smartfoxserver.v2.entities.match.RoomProperties;
-import com.smartfoxserver.v2.entities.match.StringMatch;
 import com.smartfoxserver.v2.entities.variables.SFSUserVariable;
 import com.smartfoxserver.v2.entities.variables.UserVariable;
 import com.smartfoxserver.v2.exceptions.SFSException;
 import com.smartfoxserver.v2.exceptions.SFSLoginException;
 import com.smartfoxserver.v2.extensions.BaseServerEventHandler;
-import com.smartfoxserver.v2.extensions.ExtensionLogLevel;
 import game.command.SFSAction;
 import game.command.SFSCommand;
 import game.key.SFSKey;
 import game.vn.common.config.QueueConfig;
 import game.vn.common.config.SFSConfig;
 import game.vn.common.config.ServerConfig;
-import game.vn.common.constant.ExtensionConstant;
 import game.vn.common.constant.MoneyContants;
 import game.vn.common.device.Device;
 import game.vn.common.device.Version;
 import game.vn.common.lang.GameLanguage;
-import game.vn.common.lib.api.UserReceiveMoneyOffline;
-import game.vn.common.lib.contants.UserType;
-import game.vn.common.lib.event.UserRegisterData;
 import game.vn.common.lib.hazelcast.PlayingBoardManager;
 import game.vn.common.lib.hazelcast.UserInfor;
 import game.vn.common.lib.hazelcast.UserLoginToken;
 import game.vn.common.lib.hazelcast.UserState;
 import game.vn.common.lib.news.News;
-import game.vn.common.lib.payment.UserBalanceUpdate;
-import game.vn.common.message.MessageController;
 import game.vn.common.object.ClientInfo;
-import game.vn.common.object.ClientVersionUpdate;
 import game.vn.common.object.api.LoginData;
 import game.vn.common.object.api.RegisterData;
 import game.vn.common.properties.UserInforPropertiesKey;
-import game.vn.common.queue.QueueNotify;
 import game.vn.common.queue.QueueServiceApi;
-import game.vn.common.queue.QueueServiceEvent;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.GlobalsUtil;
 import game.vn.util.Utils;
 import game.vn.util.db.Database;
-import game.vn.util.db.UpdateMoneyResult;
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * The event is fired after a successful User login.
@@ -80,9 +61,8 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
             String displayName = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.DISPLAY_NAME));
             String avatar = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.AVATAR));
             String email = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.EMAIL));
-            String merchantId = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.MERCHANT_ID));
-            String currency = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.CURRENCY));
-            String channel = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.CHANNEL));
+            String socialId = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.EMAIL));
+            byte loginType = (byte) user.getSession().getProperty(UserInforPropertiesKey.LOGIN_TYPE);
             ClientInfo clientInfo = (ClientInfo) user.getSession().getProperty(UserInforPropertiesKey.CLIENT_INFOR);
 
             // check version
@@ -90,32 +70,32 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
             String platform = clientInfo.getPlatform();
             String bundleId = clientInfo.getBundle_id();
 
-            if (!platform.equalsIgnoreCase("web")) {
-                ClientVersionUpdate cvu = Database.instance.getVersionConfig(bundleId, platform, version);
-                if (cvu == null) {
-                    trace(ExtensionLogLevel.WARN, "unknow client version", version, platform, bundleId);
-                    getApi().kickUser(user, null, "unknow client version", 1);
-                    return;
-                } else {
-                    switch (cvu.getAction()) {
-                        case ClientVersionUpdate.WARNING:
-                            sendUpdateClientMessage(user, cvu.getLink(), false);
-                            break;
-                        case ClientVersionUpdate.BLOCK:
-                            trace("old version:", version, platform, bundleId);
-                            sendUpdateClientMessage(user, cvu.getLink(), true);
-                            getApi().kickUser(user, null, "force update", 1);
-                            return;
-                    }
-                }
-            }
+//            if (!platform.equalsIgnoreCase("web")) {
+//                ClientVersionUpdate cvu = Database.instance.getVersionConfig(bundleId, platform, version);
+//                if (cvu == null) {
+//                    trace(ExtensionLogLevel.WARN, "unknow client version", version, platform, bundleId);
+//                    getApi().kickUser(user, null, "unknow client version", 1);
+//                    return;
+//                } else {
+//                    switch (cvu.getAction()) {
+//                        case ClientVersionUpdate.WARNING:
+//                            sendUpdateClientMessage(user, cvu.getLink(), false);
+//                            break;
+//                        case ClientVersionUpdate.BLOCK:
+//                            trace("old version:", version, platform, bundleId);
+//                            sendUpdateClientMessage(user, cvu.getLink(), true);
+//                            getApi().kickUser(user, null, "force update", 1);
+//                            return;
+//                    }
+//                }
+//            }
 
             //trace("email:" + email);
             double money = Database.instance.getUserMoney(userId);
             double point = Database.instance.getUserPoint(userId);
             if (money < 0 || point < 0) {    // first login
 //                trace("*********** insert user on first login", userId, displayName, avatar, "***********");
-                boolean newUser = Database.instance.insertNewUser(userId, displayName, avatar, email, merchantId, currency, platform, channel);
+                boolean newUser = Database.instance.insertNewUser(userId, socialId, displayName, avatar, email, platform, loginType);
                 if (newUser) {
                     isNewUser = true;
                     if (money < 0) {
@@ -124,24 +104,11 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
                     if (point < 0) {
                         point = 0;
                     }
-                    sendRegisterDataApi(userId, displayName, clientInfo.getSessionId(), email, channel);
                 } else {
-                    trace("error insert new user:", userId, displayName, avatar, email, merchantId, currency);
+                    trace("error insert new user:", userId, displayName, avatar, email);
                     getApi().kickUser(user, null, "", 1);
                     return;
                 }
-            }
-
-            if (Database.instance.getUserPlatform(userId) == null) {
-                Database.instance.updatePlatform(userId, platform);
-            }
-
-            if (Database.instance.getUserChannel(userId) == null) {
-                Database.instance.updateChannel(userId, channel);
-            }
-
-            if (channel != null && channel.startsWith("3")) {
-                Database.instance.updateUserType(userId, UserType.CTV);
             }
 
             int userType = Database.instance.getUserType(userId);
@@ -152,22 +119,12 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
             user.setProperty(UserInforPropertiesKey.POINT_USER, point);
             user.setProperty(UserInforPropertiesKey.ID_DB_USER, userId);
 
-            List<Integer> shuffleGames = clientInfo.getShuffleGames();
-            if (shuffleGames == null) {
-                shuffleGames = new ArrayList<>();
-            }
-            SFSArray arr = new SFSArray();
-            for (int gameId : shuffleGames) {
-                arr.addInt(gameId);
-            }
-
             List<UserVariable> vers = user.getVariables();
             vers.add(new SFSUserVariable(UserInforPropertiesKey.MONEY_USER, money));
             vers.add(new SFSUserVariable(UserInforPropertiesKey.POINT_USER, point));
             vers.add(new SFSUserVariable(UserInforPropertiesKey.ID_DB_USER, userId));
             vers.add(new SFSUserVariable(UserInforPropertiesKey.DISPLAY_NAME, displayName));
             vers.add(new SFSUserVariable(UserInforPropertiesKey.USER_TYPE, userType));
-            vers.add(new SFSUserVariable(UserInforPropertiesKey.SHUFFLE_GAMES, arr));
             vers.add(new SFSUserVariable(UserInforPropertiesKey.AVATAR, avatar));
             getApi().setUserVariables(user, vers);
 
@@ -193,20 +150,7 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
                 //login vao bình thường
                 if (!joinZoneNormal(user, displayName, clientInfo, avatar)) {
                     getApi().kickUser(user, null, "", 1);
-                } else {
-                    if (isNewUser) {
-                        List<News> popups = Database.instance.getListPopup(GlobalsUtil.DEFAULT_LOCALE.getLanguage(), true);
-                        if (popups != null && !popups.isEmpty()) {
-                            BigDecimal promitionWin = new BigDecimal(ServerConfig.getInstance().getBonusWinFree());
-                            UpdateMoneyResult umr = Database.instance.callUpdateMoneyProcedure(userId, promitionWin);
-                            sendUpdateBalanceToQueue(userId, email, clientInfo.getSessionId(), promitionWin.doubleValue());
-                            Utils.updateMoneyOfUser(user, umr.after.doubleValue());
-                            sendRegisterEventData(userId, displayName, clientInfo.getSessionId(), email);
-                            sendPopup(user, popups);
-                        }
-                    }
                 }
-
             } else {
                 //set trang thái reconnect
                 if (!doReconect(user)) {
@@ -259,30 +203,6 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
         getParentExtension().send(SFSCommand.CLIENT_REQUEST, isfso, user);
     }
 
-    public void sendUpdateBalanceToQueue(String userId, String email, String sessionId, double bonusValue) {
-        try {
-            UserBalanceUpdate ubu = new UserBalanceUpdate();
-            ubu.setPlayerId(userId);
-            ubu.setEmail(email);
-            ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
-            ubu.setCreatedAt(System.currentTimeMillis() / 1000);
-            ubu.setSessionId(sessionId);
-
-            ubu.setDescription("First Login Promotion");
-
-            ubu.setLastBalance(0);
-            ubu.setBalance(bonusValue);
-            ubu.setChange(bonusValue);
-            ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
-            ubu.setRequestId(Utils.md5String(userId + System.currentTimeMillis()));
-            ubu.setUnit("point");
-            ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_ADMIN);
-            QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
-        } catch (Exception ex) {
-            this.getLogger().error("sendUpdateBalanceToQueue error: ", ex);
-        }
-    }
-
     /**
      * join vao join bình thường
      *
@@ -309,7 +229,10 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
 
             sendJoinZoneSuccessMessage(user, userId);
             onLoginSuccess(userId);
-            sendLoginDataApi(user, userId, displayName, clientInfoObj.getSessionId(), clientInfoObj.getAuthorizeType());
+//            List<News> popups = Database.instance.getListPopup(GlobalsUtil.DEFAULT_LOCALE.getLanguage(), true);
+//            if (popups != null && !popups.isEmpty()) {
+//                sendPopup(user, popups);
+//            }
             UserState userState = HazelcastUtil.getUserState(userId);
             if (userState != null) {
                 userState.setMoneyType(moneyType);
@@ -398,7 +321,7 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
      */
     private void onLoginSuccess(String userId) {
         Database.instance.updateLastLogin(userId);
-        QueueNotify.getInstance().notifyUserLogin(userId);
+//        QueueNotify.getInstance().notifyUserLogin(userId);
     }
 
     /**
@@ -413,12 +336,6 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
         sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.JOIN_ZONE_SUCCESS);
         getParentExtension().send(SFSCommand.CLIENT_REQUEST, sfsObj, user);
 //        trace("---- sendJoinZoneSuccessMessage", userId);
-
-        if (Database.instance.getPinStatus(userId) == ExtensionConstant.PIN_STATUS_ACTIVATING) {
-            sfsObj = new SFSObject();
-            sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.FORCE_ACTIVATE_PIN);
-            getParentExtension().send(SFSCommand.CLIENT_REQUEST, sfsObj, user);
-        }
     }
 
     private void sendUpdateClientMessage(User user, String url, boolean required) {
@@ -473,41 +390,4 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
         QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyRegister(), true, data);
     }
 
-    /**
-     * gửi thông tin register qua event
-     *
-     */
-    private void sendRegisterEventData(String userId, String displayName, String sessionId, String email) {
-        UserRegisterData data = new UserRegisterData(sessionId, userId, displayName, email, 1);
-        QueueServiceEvent.getInstance().sendUserRegisterInfo(data);
-    }
-
-    /**
-     * Tìm phòng lobby theo name
-     *
-     * @param name
-     * @param moneyType
-     * @return
-     */
-    private Room findRoomLobby(String name, int moneyType) {
-        MatchExpression exp = new MatchExpression(RoomProperties.IS_GAME, BoolMatch.EQUALS, false)
-                .and(RoomProperties.NAME, StringMatch.EQUALS, name);
-
-        // Search Rooms
-        List<Room> joinableRooms;
-        if (moneyType == MoneyContants.MONEY) {
-            joinableRooms = getApi().findRooms(getParentExtension().getParentZone().getRoomListFromGroup(ExtensionConstant.LOBBY_GROUP_NAME_REAL), exp, 0);
-        } else {
-            joinableRooms = getApi().findRooms(getParentExtension().getParentZone().getRoomListFromGroup(ExtensionConstant.LOBBY_GROUP_NAME), exp, 0);
-        }
-        if (joinableRooms.size() > 0) {
-            return joinableRooms.get(0);
-        }
-        return null;
-    }
-
-    private void sendMessage(User user, String message) {
-        ISFSObject isfso = MessageController.getStaticMessage(message);
-        getParentExtension().send(SFSCommand.CLIENT_REQUEST, isfso, user);
-    }
 }

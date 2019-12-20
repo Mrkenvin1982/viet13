@@ -16,7 +16,6 @@ import game.key.SFSKey;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -33,11 +32,9 @@ import sfs2x.client.core.IEventListener;
 import sfs2x.client.core.SFSEvent;
 import sfs2x.client.requests.ExtensionRequest;
 import sfs2x.client.requests.LoginRequest;
-import sfs2x.client.requests.LogoutRequest;
 import sfs2x.client.util.ConfigData;
 import sfs2x.client.util.PasswordUtil;
 import util.HTTPUtil;
-import util.Utils;
 
 /**
  *
@@ -55,9 +52,9 @@ public final class SFSClient implements IEventListener {
     private String clientId;
     private String userId;
     private final String password = "t12345";
-    private String host = "game.devcas.club";
-    private int port = 9933;
-    private String zone = "Z88Zone";
+    private final String host = "127.0.0.1";
+    private final int port = 9933;
+    private final String zone = "Z88Zone";
     private String name;
     private JsonArray listServer;
     private int serverId = 0;
@@ -112,17 +109,10 @@ public final class SFSClient implements IEventListener {
 
             case SFSEvent.CONNECTION_LOST:
                 log.info("Connection was closed");
-                reconnect();
                 break;
 
             case SFSEvent.LOGIN:
                 log.info("Login success");
-                timer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        sfs.send(new LogoutRequest());
-                    }
-                }, TIME_RECONNECT);
                 break;
                 
             case SFSEvent.LOGIN_ERROR:
@@ -139,13 +129,6 @@ public final class SFSClient implements IEventListener {
     }
 
     private void connect() {
-        JsonObject json = listServer.get(serverId).getAsJsonObject();
-        host = json.get("ip").getAsString();
-        port = json.get("port").getAsInt();
-        zone = json.get("zone").getAsString();
-        name = json.get("name").getAsString();
-
-        log.info("connecting server: " + name);
         cfg.setHost(host);
         cfg.setPort(port);
         cfg.setZone(zone);
@@ -170,8 +153,9 @@ public final class SFSClient implements IEventListener {
     
     private void login() {
         JsonObject json = new JsonObject();
-        json.addProperty("platform", "ios");
+        json.addProperty("platform", "web");
         json.addProperty("channel", "bot-channel");
+        json.addProperty("bundle_id", "");
         json.addProperty("app_version", "1.0.0");
         json.addProperty("udid", "bot-udid");
         json.addProperty("sessionId", String.valueOf(System.currentTimeMillis()));
@@ -179,7 +163,8 @@ public final class SFSClient implements IEventListener {
         json.addProperty("authorizeType", 1);
 
         SFSObject params = new SFSObject();
-        params.putUtfString("login_token", token);
+        params.putByte("login_type", (byte)2);
+        params.putUtfString("login_token", "788305308286");
         params.putUtfString("client_info", json.toString());
         LoginRequest rq = new LoginRequest("", "", zone, params);
         sfs.send(rq);
@@ -300,32 +285,7 @@ public final class SFSClient implements IEventListener {
     
     public void start() {
         try {
-            String response = registerClient();
-            JsonObject json = Utils.parse(response);
-            if (json.get("code").getAsInt() != 7000) {
-                log.info("registerClient fail: " + response);
-                return;
-            }
-
-            clientId = json.get("data").getAsJsonObject().get("clientId").getAsString();
-            response = authenticate();
-            json = Utils.parse(response);
-            if (json.get("code").getAsInt() != 2000) {
-                log.info("authenticate fail: " + email + " - " + response);
-                return;
-            }
-            
-            json = json.get("data").getAsJsonObject();
-            token = json.get("accessToken").getAsString();
-            userId = json.get("accountId").getAsString();
-
-            listServer = getListServer();
-            if (listServer != null && listServer.size() > 0) {
-                connect();
-            } else {
-
-            }
-
+            connect();
         } catch (Exception e) {
             log.error("error starting bot " + email, e);
         }

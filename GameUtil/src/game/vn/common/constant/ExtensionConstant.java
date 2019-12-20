@@ -103,4 +103,7 @@ public class ExtensionConstant {
     public static final byte POINT_TYPE_VIDEO = 1;
     public static final byte POINT_TYPE_IAP = 2;
 
+    public static final byte LOGIN_TYPE_FB = 0;
+    public static final byte LOGIN_TYPE_GG = 1;
+    public static final byte LOGIN_TYPE_TEST = 2;
 }

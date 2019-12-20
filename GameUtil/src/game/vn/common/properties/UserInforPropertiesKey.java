@@ -69,6 +69,8 @@ public class UserInforPropertiesKey {
     public static final String ACCESS_TOKEN = "accessToken";
     public static final String PROFILE = "profile";
     public static final String USER_TYPE = "userType";
+    public static final String LOGIN_TYPE = "loginType";
     public static final String EMAIL = "email";
     public static final String CURRENCY = "currency";
+    public static final String SOCIAL_ID = "socialId";
 }

@@ -458,18 +458,17 @@ public class Database {
         return email;
     }
 
-    public boolean insertNewUser(String userId, String displayName, String avatar, String email, String merchantId, String currency, String platform, String channel) {
+    public boolean insertNewUser(String userId, String socialId, String displayName, String avatar, String email, String platform, byte loginType) {
         try (Connection conn = dbManager.getConnection()) {
-            String sql = "CALL `sfs_create_user_with_channel`(?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "CALL `sfs_create_user`(?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, userId);
-                ps.setString(2, displayName);
-                ps.setString(3, avatar);
-                ps.setString(4, email);
-                ps.setString(5, merchantId);
-                ps.setString(6, currency);
-                ps.setString(7, platform);
-                ps.setString(8, channel);
+                ps.setString(2, socialId);
+                ps.setString(3, displayName);
+                ps.setString(4, avatar);
+                ps.setString(5, email);
+                ps.setString(6, platform);
+                ps.setByte(7, loginType);
                 ps.execute();
                 return true;
             }

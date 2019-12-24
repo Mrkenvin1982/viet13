@@ -382,12 +382,12 @@ public class Database {
         }
     }
 
-    public String getUserIdByFacebookId(String facebookId) {
+    public String getUserIdBySocialId(String socialId) {
         String userId = null;
         try (Connection conn = dbManager.getConnection()) {
-            String sql = "SELECT `user_id` FROM `sfs_facebook_user` where `fb_id` = ? LIMIT 1";
+            String sql = "SELECT `user_id` FROM `sfs_user` where `social_id` = ? LIMIT 1";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, facebookId);
+                stmt.setString(1, socialId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         userId = rs.getString(1);
@@ -396,7 +396,7 @@ public class Database {
             }
 
         } catch (Exception e) {
-            LOGGER.error("Database.getUserIdByFacebookId error", e);
+            LOGGER.error("Database.getUserIdBySocialId error", e);
         }
         return userId;
     }

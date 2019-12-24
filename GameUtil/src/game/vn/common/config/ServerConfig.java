@@ -437,4 +437,12 @@ public class ServerConfig extends PropertyConfigurator {
     public int getChatInterval() {
         return getIntAttribute("chat.interval", 10000);
     }
+    
+    public String getFBAppId() {
+        return getStringAttribute("fb.appid", "737217973457819");
+    }
+
+    public String getFBAppSecret() {
+        return getStringAttribute("fb.appsecret", "d0d0205aa139a14f21d323f2f3fdd372");
+    }
 }

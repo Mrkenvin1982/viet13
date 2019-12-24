@@ -5,6 +5,10 @@
  */
 package game.vn.login.handler;
 
+import com.restfb.DefaultFacebookClient;
+import com.restfb.FacebookClient;
+import com.restfb.FacebookClient.DebugTokenInfo;
+import com.restfb.Version;
 import com.smartfoxserver.bitswarm.sessions.ISession;
 import com.smartfoxserver.v2.core.ISFSEvent;
 import com.smartfoxserver.v2.core.SFSConstants;
@@ -120,7 +124,25 @@ public class LoginHandler extends BaseServerEventHandler {
             String socialId = "";
             switch (loginType) {
                 case ExtensionConstant.LOGIN_TYPE_FB:
-                    userId = loginFB(token);
+                    com.restfb.types.User user = loginFB(token);
+                    if (user == null) {
+                        SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_BAD_PASSWORD);
+                        errData.addParameter(token);
+                        throw new SFSLoginException("LOGIN_BAD_PASSWORD", errData);
+                    }
+                    socialId = user.getId();
+                    userId = Database.instance.getUserIdBySocialId(socialId);
+                    if (userId == null) {
+                        do {
+                            userId = RandomStringUtils.randomNumeric(12);
+                            if (!Database.instance.checkUserIdExist(userId)) {
+                                break;
+                            }
+                        } while (true);
+                        displayName = user.getName();
+                        email = user.getEmail();
+                        avatar = user.getPicture().getUrl();
+                    }
                     break;
                 case ExtensionConstant.LOGIN_TYPE_GG:
                     userId = loginGG(token);
@@ -163,8 +185,19 @@ public class LoginHandler extends BaseServerEventHandler {
         }
     }
 
-    private String loginFB(String token) {
-        return null;
+    private com.restfb.types.User loginFB(String token) {
+        String accessToken = ServerConfig.getInstance().getFBAppId() + "|" + ServerConfig.getInstance().getFBAppSecret();
+        FacebookClient fbClient = new DefaultFacebookClient(accessToken, ServerConfig.getInstance().getFBAppSecret(), Version.LATEST);
+        DebugTokenInfo debugTokenInfo = fbClient.debugToken(token);
+        if (debugTokenInfo == null || !debugTokenInfo.isValid()) {
+            trace(ExtensionLogLevel.INFO, "fb login fail", token);
+            return null;
+        }
+        
+        fbClient = fbClient.createClientWithAccessToken(token);
+        com.restfb.types.User user = fbClient.fetchObject("me", com.restfb.types.User.class);
+
+        return user;
     }
     
     private String loginGG(String token) {

@@ -8,6 +8,7 @@ package game.vn.login.handler;
 import com.restfb.DefaultFacebookClient;
 import com.restfb.FacebookClient;
 import com.restfb.FacebookClient.DebugTokenInfo;
+import com.restfb.Parameter;
 import com.restfb.Version;
 import com.smartfoxserver.bitswarm.sessions.ISession;
 import com.smartfoxserver.v2.core.ISFSEvent;
@@ -139,10 +140,14 @@ public class LoginHandler extends BaseServerEventHandler {
                                 break;
                             }
                         } while (true);
-                        displayName = user.getName();
-                        email = user.getEmail();
-                        avatar = user.getPicture().getUrl();
                     }
+                    displayName = user.getName();
+                    if (user.getEmail() != null) {
+                        email = user.getEmail();
+                    }
+//                    if (user.getPicture() != null) {
+//                        avatar = user.getPicture().getUrl();
+//                    }
                     break;
                 case ExtensionConstant.LOGIN_TYPE_GG:
                     userId = loginGG(token);
@@ -195,7 +200,7 @@ public class LoginHandler extends BaseServerEventHandler {
         }
         
         fbClient = fbClient.createClientWithAccessToken(token);
-        com.restfb.types.User user = fbClient.fetchObject("me", com.restfb.types.User.class);
+        com.restfb.types.User user = fbClient.fetchObject("me", com.restfb.types.User.class, Parameter.with("fields", "id, name, email, picture"));
 
         return user;
     }

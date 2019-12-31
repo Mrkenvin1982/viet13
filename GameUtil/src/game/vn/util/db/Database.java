@@ -385,7 +385,7 @@ public class Database {
     public String getUserIdBySocialId(String socialId) {
         String userId = null;
         try (Connection conn = dbManager.getConnection()) {
-            String sql = "SELECT `user_id` FROM `sfs_user` where `social_id` = ? LIMIT 1";
+            String sql = "SELECT `id` FROM `sfs_user` where `social_id` = ? LIMIT 1";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, socialId);
                 try (ResultSet rs = stmt.executeQuery()) {

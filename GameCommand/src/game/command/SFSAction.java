@@ -106,7 +106,7 @@ public class SFSAction {
     public static final int SYSTEM_MESSAGE = 12;
 
     // point
-    public static final int GET_EVENT_INFO = 13;
+    public static final int GET_POINT_INFO = 13;
     public static final int RECEIVE_POINT = 14;
 
     // charge

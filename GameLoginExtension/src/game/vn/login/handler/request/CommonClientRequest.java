@@ -148,12 +148,8 @@ public class CommonClientRequest extends BaseClientRequestHandler {
                 case SFSAction.GET_PROFILE:
                     processGetProfile(user);
                     break;
-                case SFSAction.GET_EVENT_INFO:
-                    if (ServerConfig.getInstance().isPointFreeEnable() || ServerConfig.getInstance().isPointVideoEnable()) {
-                        getPointInfo(user, isfso);
-                    } else {
-                        getEventInfo(user, isfso);
-                    }
+                case SFSAction.GET_POINT_INFO:
+                    getPointInfo(user, isfso);
                     break;
                 case SFSAction.RECEIVE_POINT:
                     receivePoint(user, isfso);

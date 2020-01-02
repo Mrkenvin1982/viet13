@@ -778,7 +778,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         }
 
         lastPointReceiveInfo.setReceiveCount(lastPointReceiveInfo.getReceiveCount() + 1);
-        UpdateMoneyResult rs = Database.instance.callUpdatePointProcedure(userId, point);
+        UpdateMoneyResult rs = Database.instance.callUpdateMoneyProcedure(userId, new BigDecimal(point));
         if (rs.after.compareTo(rs.before) == 0) {
             trace(ExtensionLogLevel.ERROR, "call update free point error:", user.getName(), type);
             return;
@@ -794,28 +794,28 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         isfso.putInt(SFSKey.TIME_WAIT, totalTime);
         getParentExtension().send(SFSCommand.CLIENT_REQUEST, isfso, user);
 
-        Database.instance.logTransaction(null, userId, MoneyContants.POINT, point, rs.after.doubleValue(), Transaction.TYPE_FREE, Transaction.STATUS_SUCCESS);
-
-        UserBalanceUpdate ubu = new UserBalanceUpdate();
-        ubu.setPlayerId(userId);
-        ubu.setEmail(String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.EMAIL)));
-        ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
-        ubu.setCreatedAt(System.currentTimeMillis() / 1000);
-        ubu.setSessionId(String.valueOf(user.getProperty(UserInforPropertiesKey.SESSION_ID)));
-        ubu.setChannel(String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.CHANNEL)));
-        if (type == ExtensionConstant.POINT_TYPE_VIDEO) {
-            ubu.setDescription("Receive video points");
-        } else {
-            ubu.setDescription("Receive free points");
-        }
-        ubu.setLastBalance(rs.before);
-        ubu.setBalance(rs.after);
-        ubu.setChange(point);
-        ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
-        ubu.setRequestId(Utils.md5String(userId + System.currentTimeMillis()));
-        ubu.setUnit("point");
-        ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_ADMIN);
-        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
+//        Database.instance.logTransaction(null, userId, MoneyContants.POINT, point, rs.after.doubleValue(), Transaction.TYPE_FREE, Transaction.STATUS_SUCCESS);
+//
+//        UserBalanceUpdate ubu = new UserBalanceUpdate();
+//        ubu.setPlayerId(userId);
+//        ubu.setEmail(String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.EMAIL)));
+//        ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
+//        ubu.setCreatedAt(System.currentTimeMillis() / 1000);
+//        ubu.setSessionId(String.valueOf(user.getProperty(UserInforPropertiesKey.SESSION_ID)));
+//        ubu.setChannel(String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.CHANNEL)));
+//        if (type == ExtensionConstant.POINT_TYPE_VIDEO) {
+//            ubu.setDescription("Receive video points");
+//        } else {
+//            ubu.setDescription("Receive free points");
+//        }
+//        ubu.setLastBalance(rs.before);
+//        ubu.setBalance(rs.after);
+//        ubu.setChange(point);
+//        ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
+//        ubu.setRequestId(Utils.md5String(userId + System.currentTimeMillis()));
+//        ubu.setUnit("point");
+//        ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_ADMIN);
+//        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
     }
 
     private void processRequestGetListVipInfo(User user, ISFSObject isfso) {

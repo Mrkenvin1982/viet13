@@ -6,7 +6,6 @@
 package game.vn.util.db;
 
 import com.smartfoxserver.v2.db.IDBManager;
-import game.vn.common.config.ServerConfig;
 import game.vn.common.constant.MoneyContants;
 import game.vn.common.lib.api.BotAdvantage;
 import game.vn.common.lib.api.ConvertMoneyResult;
@@ -22,7 +21,6 @@ import game.vn.common.lib.payment.malaya.ChargeBankingInfo;
 import game.vn.common.lib.payment.malaya.ChargeCardInfo;
 import game.vn.common.lib.payment.malaya.ChargePromotionSchedule;
 import game.vn.common.lib.payment.malaya.ChargePromotionTime;
-import game.vn.common.lib.updateconfig.tournament.BonusInforDB;
 import game.vn.common.lib.poker.spinandgo.Reward;
 import game.vn.common.lib.poker.spinandgo.RewardMulti;
 import game.vn.common.object.ClientVersionUpdate;
@@ -119,9 +117,6 @@ public class Database {
      * @return
      */
     public UpdateMoneyResult callUpdateMoneyProcedure(String userId, BigDecimal value) {
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            return callUpdateSatoshiProcedure(userId, value);
-        }
         return callUpdateUSDProcedure(userId, value);
     }
 
@@ -132,9 +127,6 @@ public class Database {
      * @return
      */
     public UpdateMoneyResult callUpdateMoneyStackProcedure(String userId, BigDecimal value) {
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            return callUpdateSatoshiStackProcedure(userId, value);
-        }
         return callUpdateUSDStackProcedure(userId, value);
     }
 
@@ -164,36 +156,7 @@ public class Database {
         return umr;
     }
 
-    /**
-     * cập nhật satoshi của user
-     * @param userId
-     * @param value
-     * @return
-     */
-    private UpdateMoneyResult callUpdateSatoshiProcedure(String userId, BigDecimal value) {
-        UpdateMoneyResult umr = null;
-        try (Connection conn = dbManager.getConnection()) {
-            String sql = "{CALL sfs_update_satoshi(?, ?, ?, ?)}";
-            try (CallableStatement call = conn.prepareCall(sql)) {
-                call.setString(1, userId);
-                call.setBigDecimal(2, value);
-                call.registerOutParameter(3, Types.DECIMAL);
-                call.registerOutParameter(4, Types.DECIMAL);
-                call.executeUpdate();
-                umr = new UpdateMoneyResult();
-                umr.before = call.getBigDecimal(3);
-                umr.after = call.getBigDecimal(4);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Database.callUpdateSatoshiProcedure " + userId + " - " + value.toString(), e);
-        }
-        return umr;
-    }
-
     public TransferMoneyResult callTransferMoneyProcedure(String fromUserId, String toUserId, BigDecimal fromValue, BigDecimal toValue) {
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            return callTransferSatoshiProcedure(fromUserId, toUserId, fromValue, toValue);
-        }
         return callTransferUSDProcedure(fromUserId, toUserId, fromValue, toValue);
     }
 
@@ -221,10 +184,6 @@ public class Database {
             LOGGER.error("Database.callTransferUSDProcedure " + fromUserId + " " + fromValue.toString(), e);
         }
         return umr;
-    }
-
-    private TransferMoneyResult callTransferSatoshiProcedure(String fromUserId, String toUserId, BigDecimal fromValue, BigDecimal toValue) {
-        return null;
     }
 
     /**
@@ -293,13 +252,7 @@ public class Database {
      * @return
      */
     public double getUserMoney(String userId) {
-        double money;
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            money = getUserSatoshi(userId);
-        } else {
-            money = getUserUSD(userId);
-        }
-        return money;
+        return getUserUSD(userId);
     }
 
     /**
@@ -326,29 +279,6 @@ public class Database {
     }
 
     
-    /**
-     * Get satoshi của user
-     * @param userId
-     * @return
-     */
-    private double getUserSatoshi(String userId) {
-        double point = -1;
-        try (Connection conn = dbManager.getConnection()) {
-            String sql = "SELECT `satoshi` FROM `sfs_user_satoshi` WHERE `user_id` = ? LIMIT 1";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, userId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        point = rs.getDouble(1);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.error("Database.getUserSatoshi", e);
-        }
-        return point;
-    }
-
     public void updateLastLogin(String userId) {
         try (Connection conn = dbManager.getConnection()) {
             try (PreparedStatement ps = conn.prepareStatement("UPDATE sfs_user SET last_login=NOW() WHERE id=?")) {
@@ -1167,33 +1097,6 @@ public class Database {
      * mua tẩy vào bàn, chuyển tiền từ bảng chính qua bảng tạm
      *
      * @param userId
-     * @param value >0
-     * @return
-     */
-    private UpdateMoneyResult callBuyStackSatoshiProcedure(String userId, BigDecimal value) {
-        UpdateMoneyResult umr = null;
-        try (Connection conn = dbManager.getConnection()) {
-            String sql = "{CALL sfs_buyin_satoshi(?, ?, ?, ?)}";
-            try (CallableStatement call = conn.prepareCall(sql)) {
-                call.setString(1, userId);
-                call.setBigDecimal(2, value);
-                call.registerOutParameter(3, Types.DECIMAL);
-                call.registerOutParameter(4, Types.DECIMAL);
-                call.executeUpdate();
-                umr = new UpdateMoneyResult();
-                umr.before = call.getBigDecimal(3);
-                umr.after = call.getBigDecimal(4);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Database.callBuyStackSatoshiProcedure " + userId + " - " + value.toString(), e);
-        }
-        return umr;
-    }
-
-    /**
-     * mua tẩy vào bàn, chuyển tiền từ bảng chính qua bảng tạm
-     *
-     * @param userId
      * @param value
      * @return
      */
@@ -1214,7 +1117,7 @@ public class Database {
                 umr.stack = call.getBigDecimal(5);
             }
         } catch (Exception e) {
-            LOGGER.error("Database.callBuyStackSatoshiProcedure " + userId + " - " + value.toString(), e);
+            LOGGER.error("Database.callBuyStackUSDProcedure " + userId + " - " + value.toString(), e);
         }
         return umr;
     }
@@ -1227,9 +1130,6 @@ public class Database {
      * @return
      */
     public UpdateMoneyResult callBuyStackMoneyProcedure(String userId, BigDecimal value) {
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            return callBuyStackSatoshiProcedure(userId, value);
-        }
         return callBuyStackUSDProcedure(userId, value);
     }
 
@@ -1293,13 +1193,7 @@ public class Database {
      * @return
      */
     public double getUserMoneyStack(String userId) {
-        double money;
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            money = getUserSatoshiStack(userId);
-        } else {
-            money = getUserUSDStack(userId);
-        }
-        return money;
+        return getUserUSDStack(userId);
     }
 
     /**
@@ -1324,24 +1218,6 @@ public class Database {
             LOGGER.error("Database.getUserUSDStack error:", e);
         }
         return money;
-    }
-
-    private double getUserSatoshiStack(String userId) {
-        double satoshi = 0;
-        try (Connection conn = dbManager.getConnection()) {
-            String sql = "SELECT `satoshi` FROM `sfs_user_satoshi_stack` WHERE `user_id` = ? LIMIT 1";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, userId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        satoshi = rs.getDouble(1);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.error("Database.getUserSatoshiStack", e);
-        }
-        return satoshi;
     }
 
     /**
@@ -1394,57 +1270,6 @@ public class Database {
             }
         } catch (Exception e) {
             LOGGER.error("Database.callUpdatePointStackProcedure " + userId + " - " + value.toString(), e);
-        }
-        return umr;
-    }
-
-    /**
-     * cập nhật satoshi của user trong bàn chơi
-     *
-     * @param userId
-     * @param value
-     * @return
-     */
-    private UpdateMoneyResult callUpdateSatoshiStackProcedure(String userId, BigDecimal value) {
-        UpdateMoneyResult umr = null;
-        try (Connection conn = dbManager.getConnection()) {
-            String sql = "{CALL sfs_update_satoshi_stack(?, ?, ?, ?)}";
-            try (CallableStatement call = conn.prepareCall(sql)) {
-                call.setString(1, userId);
-                call.setBigDecimal(2, value);
-                call.registerOutParameter(3, Types.DECIMAL);
-                call.registerOutParameter(4, Types.DECIMAL);
-                call.executeUpdate();
-                umr = new UpdateMoneyResult();
-                umr.before = call.getBigDecimal(3);
-                umr.after = call.getBigDecimal(4);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Database.callUpdateSatoshiStackProcedure " + userId + " - " + value.toString(), e);
-        }
-        return umr;
-    }
-
-    /**
-     *
-     * @param userId
-     * @return
-     */
-    private UpdateMoneyResult callCashoutSatoshiProcedure(String userId) {
-        UpdateMoneyResult umr = null;
-        try (Connection conn = dbManager.getConnection()) {
-            String sql = "{CALL sfs_cashout_satoshi(?, ?, ?)}";
-            try (CallableStatement call = conn.prepareCall(sql)) {
-                call.setString(1, userId);
-                call.registerOutParameter(2, Types.DECIMAL);
-                call.registerOutParameter(3, Types.DECIMAL);
-                call.executeUpdate();
-                umr = new UpdateMoneyResult();
-                umr.before = call.getBigDecimal(2);
-                umr.after = call.getBigDecimal(3);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Database.callCashoutSatoshiStackProcedure " + userId, e);
         }
         return umr;
     }
@@ -1503,9 +1328,6 @@ public class Database {
      * @return
      */
     public UpdateMoneyResult callCashoutMoneyStackProcedure(String userId) {
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            return callCashoutSatoshiProcedure(userId);
-        }
         return callCashoutUSDProcedure(userId);
     }
 

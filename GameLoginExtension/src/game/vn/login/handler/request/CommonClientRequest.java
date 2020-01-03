@@ -783,7 +783,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
             trace(ExtensionLogLevel.ERROR, "call update free point error:", user.getName(), type);
             return;
         }
-        Utils.updatePointOfUser(user, rs.after.doubleValue());
+        Utils.updateMoneyOfUser(user, rs.after.doubleValue());
         Database.instance.updateInfoReceivePoint(userId, type, lastPointReceiveInfo.getReceiveCount());
 
         if (lastPointReceiveInfo.getReceiveCount() == receiveLimit) {

@@ -18,18 +18,26 @@ import game.vn.common.config.RoomConfig;
 import game.vn.common.config.SFSConfig;
 import game.vn.common.config.ServerConfig;
 import game.vn.common.constant.MoneyContants;
+import game.vn.common.lib.findboard.FindBoardRequest;
 import game.vn.common.lib.hazelcast.Board;
 import game.vn.common.lib.hazelcast.PlayingBoardManager;
 import game.vn.common.lib.hazelcast.UserInfor;
 import game.vn.common.lib.hazelcast.UserLoginToken;
 import game.vn.common.lib.hazelcast.UserState;
+import game.vn.common.object.BoardComparator;
+import game.vn.common.object.BoardComparetorByMoney;
 import game.vn.common.object.ServerInfor;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheManager;
+import net.sf.ehcache.Element;
 
 /**
  *
@@ -45,6 +53,7 @@ public class HazelcastUtil {
     private static final String SERVER_PORT_WS = "ServerPortWs";
     private static final String SERVER_ZONE = "ServerZone";
     private static final String SERVER_MERCHANT = "ServerMerchant";
+    private static final int MAX_BOARD_FIND = 5;
     
     //thong tin lien quan server login
     private static final String ACTIVE_USER_LIST = "ActiveUserList";
@@ -56,14 +65,18 @@ public class HazelcastUtil {
     //Thong tin van dang choi
     private static final String PLAYING_BOARD_OF_USER = "PlayingBoardOfUser";
     private static final String TOURNAMENT_SPIN_GO ="TournamentSpinGo";
-
+    private static final BoardComparator BOARD_SORTED_DESC = new BoardComparator();
+    private static final BoardComparetorByMoney BOARD_SORTED_BY_MONEY_DESC = new BoardComparetorByMoney();
     private static HazelcastInstance instance;
     public static int serverType;
+    private static final CacheManager CACHE_MANAGER = new CacheManager("conf/ehcache.xml");
+    private static Cache CACHE;
 
     // create HazelcastInstance instance with config 
     static {
         try {
             instance = Hazelcast.newHazelcastInstance(new FileSystemXmlConfig("conf/hazelcast.xml"));
+            CACHE = CACHE_MANAGER.getCache("Board");
         } catch (FileNotFoundException e) {
         }
     }
@@ -861,5 +874,125 @@ public class HazelcastUtil {
             return ;
         }
         instance.getMap(TOURNAMENT_SPIN_GO + "_" + serviceId).unlock(serviceId);
+    }
+    
+    private static List<Board> getListWaitingBoard(FindBoardRequest request, int max) {
+        List<Board> result = new ArrayList<>();
+        try {
+            String map = LIST_BOARD_WAITING + "_" + request.getServiceId() + "_"+ request.getMoneyType()+ "_" + request.getBetMoney();
+            IMap<String, Board> boards = instance.getMap(map);
+            for (Map.Entry<String, Board> entry : boards.entrySet()) {
+                Board board = entry.getValue();
+                if(board.getFreeSeat()==0){
+                    continue;
+                }
+                
+                if(board.getMaxPlayer()!= request.getMaxPlayer()){
+                    continue;
+                }
+                //cùng 1 user(idDB user) thì không thể vào cùng 1 bàn
+                if(board.getIps().containsKey(request.getUserId())){
+                    continue;
+                }
+
+                if (board.getMode() != request.getMode()) {
+                    continue;
+                }
+
+//                if(board.geIps().containsValue(request.getIpUser())){
+//                    continue;
+//                }
+                if (!isBoardCached(board)) {
+                    board.setIsAutoJoin(false);
+                    result.add(board);
+                }
+            }
+            if (!result.isEmpty()) {
+                Collections.sort(result,BOARD_SORTED_DESC);
+                if (result.size() > max) {
+                    result = result.subList(0, max);
+                }
+                for (Board board : result) {
+                    cacheBoard(board);
+                }
+            }
+        } catch (Exception e) {
+            
+        }
+
+        return result;
+    }
+    
+    /**
+     * Tìm 5 bàn <= mức cược request
+     * @param request
+     * @param max
+     * @return 
+     */
+    private static List<Board> getListWaitingBoardAutoJoin(FindBoardRequest request, int max) {
+        List<Board> result = new ArrayList<>();
+        try {
+            String map = LIST_BOARD_WAITING + "_" + request.getServiceId() + "_" + request.getMoneyType();
+            IMap<String, Board> boards = instance.getMap(map);
+            List<Board> boardList=new ArrayList<>(boards.values());
+            Collections.sort(boardList,BOARD_SORTED_BY_MONEY_DESC);
+             
+            for (Board board : boardList) {
+                if (isBoardCached(board)) {
+                    continue;
+                }
+                if (board.getFreeSeat() == 0) {
+                    continue;
+                }
+                
+                if(board.getMaxPlayer()!= request.getMaxPlayer()){
+                    continue;
+                }
+                //cùng 1 user(idDB user) thì không thể vào cùng 1 bàn
+                if(board.getIps().containsKey(request.getUserId())){
+                    continue;
+                }
+//                if(board.geIps().containsValue(request.getIpUser())){
+//                    continue;
+//                }
+                if (board.getBetMoney() > request.getBetMoney()) {
+                    continue;
+                }
+                if (board.getMode() != request.getMode()) {
+                    continue;
+                }
+
+                board.setIsAutoJoin(true);
+                result.add(board);
+                cacheBoard(board);
+                if(result.size()>=max){
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            
+        }
+
+        return result;
+    }
+    
+    public static List<Board> findBoard(FindBoardRequest request) {
+        if (request.isAutoJoin()) {
+            return getListWaitingBoardAutoJoin(request, MAX_BOARD_FIND);
+        }
+        return getListWaitingBoard(request, MAX_BOARD_FIND);
+    }
+
+    private static void cacheBoard(Board board) {
+        CACHE.acquireWriteLockOnKey(board.getName());
+        CACHE.put(new Element(board.getName(), System.currentTimeMillis()));
+        CACHE.releaseWriteLockOnKey(board.getName());
+    }
+
+    private static boolean isBoardCached(Board board) {
+        CACHE.acquireReadLockOnKey(board.getName());
+        Element e = CACHE.get(board.getName());
+        CACHE.releaseReadLockOnKey(board.getName());
+        return e != null;
     }
 }

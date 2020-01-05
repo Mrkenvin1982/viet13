@@ -5,6 +5,7 @@
  */
 package game.vn.common.handler.request;
 
+import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
@@ -16,15 +17,16 @@ import game.vn.common.GameExtension;
 import game.vn.common.config.RoomConfig;
 import game.vn.common.config.ServerConfig;
 import game.vn.common.constant.MoneyContants;
+import game.vn.common.constant.Service;
 import game.vn.common.lang.GameLanguage;
 import game.vn.common.lib.contants.PlayMode;
 import game.vn.common.lib.findboard.FindBoardRequest;
+import game.vn.common.lib.hazelcast.Board;
 import game.vn.common.lib.hazelcast.PlayingBoardManager;
 import game.vn.common.lib.hazelcast.UserState;
 import game.vn.common.message.MessageController;
 import game.vn.common.properties.RoomInforPropertiesKey;
 import game.vn.common.properties.UserInforPropertiesKey;
-import game.vn.common.queue.QueueService;
 import game.vn.common.tournament.TournamentManager;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.Utils;
@@ -297,21 +299,16 @@ public class CommonClientRequest extends BaseClientRequestHandler {
      * Mua tẩy để vào bàn chơi
      */
     private boolean buyStack(User user, double moneyStack, double betBoard, boolean isAutoJoin, byte mode) {
-        try {
-            int moneyTypeOfUser=getMoneyType();
-            boolean isSuccess;
-            if(moneyTypeOfUser==MoneyContants.MONEY){
-                isSuccess = buyMoneyStack(user, moneyStack, betBoard);
-            }else{
-                isSuccess = buyPointStack(user, moneyStack, betBoard);
-            }
-            if (isSuccess) {
-                //gửi lên danh sách tìm bàn theo mức cược
-                findBoard(user, betBoard, moneyTypeOfUser, isAutoJoin, mode);
-                return true;
-            }
-        } catch (Exception e) {
-             this.getLogger().error("CommonClientRequest.buyStack()error: ", e);
+        int moneyType = getMoneyType();
+        boolean isSuccess;
+        if (moneyType == MoneyContants.MONEY) {
+            isSuccess = buyMoneyStack(user, moneyStack, betBoard);
+        } else {
+            isSuccess = buyPointStack(user, moneyStack, betBoard);
+        }
+
+        if (isSuccess) {
+            return findBoard(user, betBoard, moneyType, isAutoJoin, mode);
         }
         return false;
     }
@@ -374,7 +371,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
      * @param user
      * @param bet 
      */
-    private void findBoard(User user, double bet, int moneyType, boolean isAutoJoin, byte mode) {
+    private boolean findBoard(User user, double bet, int moneyType, boolean isAutoJoin, byte mode) {
         byte serviceId = (byte)user.getProperty(UserInforPropertiesKey.SERVICE_ID);
         String userId = Utils.getIdDBOfUser(user);
         FindBoardRequest request = new FindBoardRequest();
@@ -386,7 +383,130 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         request.setAutoJoin(isAutoJoin);
         request.setIpUser(user.getSession().getAddress());
         request.setMode(mode);
-        QueueService.getInstance().sendFindBoardRequest(request);
+        List<Board> boards = HazelcastUtil.findBoard(request);
+        
+        try {
+            Room room = boards.isEmpty() ? createRoom(user) : getParentExtension().getParentZone().getRoomByName(boards.get(0).getName());
+            getApi().joinRoom(user, room);
+            return true;
+        } catch (Exception ex) {
+            getLogger().error("findboard: " + userId +  " " + bet + " " + isAutoJoin + " " + mode, ex);
+        }
+        return false;
+    }
+    
+    private Room createRoom(User user) {
+        try {
+            String userId =  Utils.getIdDBOfUser(user);
+            Locale localeOfUser = Utils.getUserLocale(user);
+            
+            //loại tiền user chọn chơi: tiền thiệt va tiền ảo
+            int moneyTypeOfUser= Utils.getMoneyTypeOfUser(user);
+            if(moneyTypeOfUser==MoneyContants.MONEY && ServerConfig.getInstance().isCloseRealMoney()){
+                String infor=GameLanguage.getMessage(GameLanguage.NOT_EXIST_MONEY_BOARD, localeOfUser);
+                getApi().kickUser(user, null, infor, 1);
+                return null;
+            }
+            
+            UserState userState = HazelcastUtil.getUserState(userId);
+            if(userState == null){
+                String infor=GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, localeOfUser);
+                getApi().kickUser(user, null, infor, 1);
+                throw new Exception("----userState null in gameLogin ");
+            }
+            if (userState.getCurrentLobbyName().isEmpty()) {
+                String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, localeOfUser);
+                getApi().kickUser(user, null, infor, 1);
+                this.getLogger().error("----getCurrentLobbyName is empty in gameLogin error ");
+                return null;
+            }
+           
+            List<Double> listBet;
+            boolean isTournament = RoomConfig.getInstance().getTournamentNameGames().contains(userState.getCurrentLobbyName());
+            if (isTournament) {
+                listBet = TournamentManager.getInstance().getTicketValues();
+            } else {
+                //lấy ra danh sách mức cược trong lobby game
+                String strBets = RoomConfig.getInstance().getListBet(userState.getCurrentLobbyName());
+                //không tồn tại lobby request tạo bàn
+                if (strBets.isEmpty()) {
+                    String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, localeOfUser);
+                    getApi().kickUser(user, null, infor, 1);
+                    throw new Exception(infor + "----strBets is empty in gameLogin ");
+                }
+                //không  tồn tại mức cược gửi lên tạo bàn
+                listBet = Utils.convertToListDouble(strBets);
+            }
+
+            
+            if(!listBet.contains(userState.getBetBoard())){
+                String infor = GameLanguage.getMessage(GameLanguage.NOT_EXIST_BET_BOARD, localeOfUser);
+                getApi().kickUser(user, null, infor, 1);
+                return null;
+            }
+            
+            //check xem có chơi bàn nào không, nếu có cho vao khong tạo nữa
+            PlayingBoardManager playingBoard= HazelcastUtil.getPlayingBoard(userId);
+            if (playingBoard != null) {
+                if (playingBoard.getBoardPlaying() != null) {
+                    Room room = getParentExtension().getParentZone().getRoomByName(playingBoard.getBoardPlaying().getName());
+                    if (room != null) {
+                        getApi().joinRoom(user, room);
+                        return null;
+                    }
+                    String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, localeOfUser);
+                    getApi().kickUser(user, null, infor, 1);
+                    throw new Exception(infor + "----can not comback playing game :"+playingBoard.getBoardPlaying().getName());
+                }
+            }
+            
+            //số lần mức cược tối thiểu mua tẩy
+            int moneyFactory = RoomConfig.getInstance().getMinJoinOwner(userState.getCurrentLobbyName());
+            //số tiền tối thiểu mua tẩy
+            double minBetBoard =Utils.multiply(userState.getBetBoard(), moneyFactory) ;
+            
+            //xét tiền cho user chổ này
+            double money = 0;
+            if (moneyTypeOfUser == MoneyContants.MONEY) {
+                money = userState.getMoneyStack();
+                if (money < minBetBoard && Database.instance.getUserMoney(userId) >= minBetBoard) {
+                    money = minBetBoard;
+                    userState.setMoneyStack(money);
+                }
+            } else {
+                money = userState.getPointStack();
+                if (money < minBetBoard && Database.instance.getUserPoint(userId) >= minBetBoard) {
+                    money = minBetBoard;
+                    userState.setPointStack(money);
+                }
+            }
+            HazelcastUtil.updateUserState(userState);
+            
+            if (money < minBetBoard) {
+                String infor = GameLanguage.getMessage(GameLanguage.NO_MONEY_USER, localeOfUser);
+                infor = String.format(infor, moneyFactory);
+                getApi().kickUser(user, null, infor, 1);
+                return null;
+            }
+            
+            //khi vào handler join room thi chặn không cho tạo bàn nữa
+            if (!user.isJoining()) {
+                byte serviceId = Utils.getServiceId(userState.getCurrentLobbyName());
+                byte mode = Utils.getUserPlayMode(user, serviceId);
+                
+                if (serviceId == Service.SYSTEM) {
+                    String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, Utils.getUserLocale(user));
+                    getApi().kickUser(user, null, infor, 1);
+                } else {
+                    return Utils.createBoardGame(userState.getBetBoard(), serviceId, getParentExtension().getParentZone(), moneyTypeOfUser, mode, isTournament);
+                }
+            }
+        } catch (Exception e) {
+            this.getLogger().error("userJoinRoom error: ", e);
+            String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, Utils.getUserLocale(user));
+            getApi().kickUser(user, null, infor, 1);
+        }
+        return null;
     }
     
     /**

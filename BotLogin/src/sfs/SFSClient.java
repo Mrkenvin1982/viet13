@@ -10,9 +10,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 import com.smartfoxserver.v2.exceptions.SFSException;
+import constant.Constant;
 import game.command.SFSAction;
 import game.command.SFSCommand;
 import game.key.SFSKey;
+import game.vn.common.lib.contants.MoneyContants;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.Timer;
@@ -26,15 +28,19 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import service.Service;
 import sfs2x.client.SmartFox;
 import sfs2x.client.core.BaseEvent;
 import sfs2x.client.core.IEventListener;
 import sfs2x.client.core.SFSEvent;
+import sfs2x.client.entities.Room;
 import sfs2x.client.requests.ExtensionRequest;
+import sfs2x.client.requests.JoinRoomRequest;
 import sfs2x.client.requests.LoginRequest;
 import sfs2x.client.util.ConfigData;
 import sfs2x.client.util.PasswordUtil;
 import util.HTTPUtil;
+import util.Utils;
 
 /**
  *
@@ -58,6 +64,7 @@ public final class SFSClient implements IEventListener {
     private String name;
     private JsonArray listServer;
     private int serverId = 0;
+    private Room room;
     
     private final Logger log = LoggerFactory.getLogger(SFSClient.class);
     private final Timer timer = new Timer();
@@ -73,6 +80,7 @@ public final class SFSClient implements IEventListener {
         sfs.addEventListener(SFSEvent.LOGIN, this);
         sfs.addEventListener(SFSEvent.LOGIN_ERROR, this);
         sfs.addEventListener(SFSEvent.LOGOUT, this);
+        sfs.addEventListener(SFSEvent.ROOM_JOIN, this);
         sfs.addEventListener(SFSEvent.EXTENSION_RESPONSE, new IEventListener() {
             @Override
             public void dispatch(BaseEvent e) throws SFSException {
@@ -83,8 +91,15 @@ public final class SFSClient implements IEventListener {
                 int action = sfsObj.containsKey(SFSKey.ACTION_INCORE) ? sfsObj.getInt(SFSKey.ACTION_INCORE) : sfsObj.getInt(SFSKey.ACTION_INGAME);
                 switch (action) {
                     case SFSAction.JOIN_ZONE_SUCCESS:
+                        requestInfoAllGame();
                         break;
                     case SFSAction.PLAY_TAIXIU:
+                        break;
+                    case SFSAction.REQUEST_INFOR_ALL_GAME:
+                        joinLobby();
+                        break;
+                    case SFSAction.LOBBY_LIST_COUNTER:
+                        buyStack(1000.0);
                         break;
                 }
             }
@@ -124,6 +139,12 @@ public final class SFSClient implements IEventListener {
 
             case SFSEvent.LOGOUT:
                 sfs.disconnect();
+                break;
+                
+            case SFSEvent.ROOM_JOIN:
+                room = (Room) evt.getArguments().get("room");
+                log.info(email + " join room: " + room.getName());
+                getListBetMoney();
                 break;
         }
     }
@@ -295,4 +316,28 @@ public final class SFSClient implements IEventListener {
         new SFSClient();
     }
 
+    private void requestInfoAllGame() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.REQUEST_INFOR_ALL_GAME);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj));
+    }
+    
+    private void joinLobby() {
+        sfs.send(new JoinRoomRequest(Service.getLobbyName(Service.TIENLEN, MoneyContants.MONEY)));
+    }
+    
+    public void getListBetMoney() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.LOBBY_LIST_COUNTER);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, room));
+    }
+    
+    public void buyStack(double betMoney) {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.BUY_STACK_IN_LOBBY);
+        sfsObj.putDouble(SFSKey.BET_BOARD, betMoney);
+        sfsObj.putDouble(SFSKey.MONEY_STACK, betMoney * 10);
+        sfsObj.putBool(SFSKey.IS_OWNER, true);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, room));
+    }
 }

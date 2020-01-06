@@ -1891,7 +1891,10 @@ public abstract class GameController implements Runnable {
         if (user == null) {
             return false;
         }
-        return user.getVariable(UserInforPropertiesKey.QUICK_PLAY).getBoolValue();
+        if (user.containsProperty(UserInforPropertiesKey.QUICK_PLAY)) {
+            return user.getVariable(UserInforPropertiesKey.QUICK_PLAY).getBoolValue();
+        }
+        return false;
     }
 
     /**

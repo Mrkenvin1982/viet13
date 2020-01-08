@@ -25,7 +25,6 @@ public class UserDisConnectHandler extends BaseServerEventHandler{
 //        trace("----------UserDisConnectHandler--------------", user.getName());
         GameExtension gameExt = (GameExtension) getParentExtension();       
         ClientDisconnectionReason reason =(ClientDisconnectionReason)isfse.getParameter(SFSEventParam.DISCONNECTION_REASON);
-        user.setJoining(false);
         try {
             //trường hợp là lobby thì không xử lý leave game
             if (room != null && !room.isGame()) {

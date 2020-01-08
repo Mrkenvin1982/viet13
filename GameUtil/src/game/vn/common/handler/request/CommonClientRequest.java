@@ -490,16 +490,14 @@ public class CommonClientRequest extends BaseClientRequestHandler {
             }
             
             //khi vào handler join room thi chặn không cho tạo bàn nữa
-            if (!user.isJoining()) {
-                byte serviceId = Utils.getServiceId(userState.getCurrentLobbyName());
-                byte mode = Utils.getUserPlayMode(user, serviceId);
-                
-                if (serviceId == Service.SYSTEM) {
-                    String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, Utils.getUserLocale(user));
-                    getApi().kickUser(user, null, infor, 1);
-                } else {
-                    return Utils.createBoardGame(userState.getBetBoard(), serviceId, getParentExtension().getParentZone(), moneyTypeOfUser, mode, isTournament);
-                }
+            byte serviceId = Utils.getServiceId(userState.getCurrentLobbyName());
+            byte mode = Utils.getUserPlayMode(user, serviceId);
+
+            if (serviceId == Service.SYSTEM) {
+                String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, Utils.getUserLocale(user));
+                getApi().kickUser(user, null, infor, 1);
+            } else {
+                return Utils.createBoardGame(userState.getBetBoard(), serviceId, getParentExtension().getParentZone(), moneyTypeOfUser, mode, isTournament);
             }
         } catch (Exception e) {
             this.getLogger().error("userJoinRoom error: ", e);

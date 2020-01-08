@@ -29,7 +29,6 @@ public class LeaveRoomHandler extends BaseServerEventHandler {
         GameExtension getExt = (GameExtension) getParentExtension();
         //get user state từ hazelcast ve de update                        
         String userId = Utils.getIdDBOfUser(user);
-        user.setJoining(false);
         try {
             if (room.isGame()) {
                 //rời khỏi room game

@@ -610,7 +610,7 @@ public abstract class GameController implements Runnable {
             return;
         }
         try {
-                this.game.getLogger().info("leave: " + getIdDBOfUser(playerLeave));
+            game.getLogger().info("leave: " + getIdDBOfUser(playerLeave));
             //update tong tin bỏ cuộc của user
             if (isPlaying() && isInturn(playerLeave)) {
                 updateAchievement(playerLeave, CommonMoneyReasonUtils.BO_CUOC);
@@ -618,9 +618,9 @@ public abstract class GameController implements Runnable {
             penalizeLeaver(playerLeave);
             processLeaveGame(playerLeave);
             
-                if (!isPlaying() && getPlayersList().size() < 2) {
-                    checkUserAutoLeave();
-                }
+            if (!isPlaying() && getPlayersList().size() < 2) {
+                checkUserAutoLeave();
+            }
         } catch (Exception e) {
             this.game.getLogger().error("GameController.leave() error: ", e);
         }
@@ -684,7 +684,7 @@ public abstract class GameController implements Runnable {
         }
         sendLeaveRoomMessage(playerLeave);
         //khi user disable mạng, tắt wifi thì sẽ bị delay 5s
-        this.game.getApi().kickUser(playerLeave, null, " ", 0);
+//        this.game.getApi().kickUser(playerLeave, null, " ", 0);
     }
 
     /**

@@ -33,7 +33,6 @@ public class JoinRoomHandler extends BaseServerEventHandler {
     public void handleServerEvent(ISFSEvent isfse) {
         User user = (User) isfse.getParameter(SFSEventParam.USER);
         Room room = (Room) isfse.getParameter(SFSEventParam.ROOM);
-//        user.setJoining(true);
         try {
 //            trace(" id user join: " + user.getName() + ": " + user.getId());
             int roomType = room.getVariable(RoomInforPropertiesKey.MONEY_TYPE).getIntValue();

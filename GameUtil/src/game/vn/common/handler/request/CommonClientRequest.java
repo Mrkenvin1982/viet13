@@ -387,7 +387,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         
         try {
             Room room = boards.isEmpty() ? createRoom(user) : getParentExtension().getParentZone().getRoomByName(boards.get(0).getName());
-            getApi().joinRoom(user, room);
+            getApi().joinRoom(user, room, null, false, null);
             return true;
         } catch (Exception ex) {
             getLogger().error("findboard: " + userId +  " " + bet + " " + isAutoJoin + " " + mode, ex);
@@ -466,7 +466,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
             double minBetBoard =Utils.multiply(userState.getBetBoard(), moneyFactory) ;
             
             //xét tiền cho user chổ này
-            double money = 0;
+            double money;
             if (moneyTypeOfUser == MoneyContants.MONEY) {
                 money = userState.getMoneyStack();
                 if (money < minBetBoard && Database.instance.getUserMoney(userId) >= minBetBoard) {

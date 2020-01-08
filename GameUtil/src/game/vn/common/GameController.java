@@ -726,31 +726,31 @@ public abstract class GameController implements Runnable {
                     }
                     updateMoneyStackOfUser(user, BigDecimal.ZERO);
 
-                    if (result.after.compareTo(result.before) != 0) {
-                        UserBalanceUpdate ubu = new UserBalanceUpdate();
-                        ubu.setPlayerId(userId);
-                        ubu.setServiceId(getServiceId());
-                        ubu.setEmail(userState.getEmail());
-                        ubu.setSessionId(userState.getSessionId());
-                        ubu.setRequestId(Utils.md5String(userId + money.doubleValue() + System.currentTimeMillis()));
-                        ubu.setLogId(ubu.getRequestId());
-                        ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
-                        ubu.setCreatedAt(System.currentTimeMillis() / 1000);
-                        ubu.setBalance(result.after);
-                        ubu.setChange(result.after.subtract(result.before));
-                        ubu.setLastBalance(result.after);
-                        ubu.setDescription("Refund stack");
-                        ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_PLAY_GAME);
-                        ubu.setChannel(Database.instance.getUserChannel(userId));
-                        if (moneyType == MoneyContants.MONEY) {
-                            ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
-                            ubu.setUnit("real");
-                        } else {
-                            ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
-                            ubu.setUnit("point");
-                        }
-                        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
-                    }
+//                    if (result.after.compareTo(result.before) != 0) {
+//                        UserBalanceUpdate ubu = new UserBalanceUpdate();
+//                        ubu.setPlayerId(userId);
+//                        ubu.setServiceId(getServiceId());
+//                        ubu.setEmail(userState.getEmail());
+//                        ubu.setSessionId(userState.getSessionId());
+//                        ubu.setRequestId(Utils.md5String(userId + money.doubleValue() + System.currentTimeMillis()));
+//                        ubu.setLogId(ubu.getRequestId());
+//                        ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
+//                        ubu.setCreatedAt(System.currentTimeMillis() / 1000);
+//                        ubu.setBalance(result.after);
+//                        ubu.setChange(result.after.subtract(result.before));
+//                        ubu.setLastBalance(result.after);
+//                        ubu.setDescription("Refund stack");
+//                        ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_PLAY_GAME);
+//                        ubu.setChannel(Database.instance.getUserChannel(userId));
+//                        if (moneyType == MoneyContants.MONEY) {
+//                            ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
+//                            ubu.setUnit("real");
+//                        } else {
+//                            ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
+//                            ubu.setUnit("point");
+//                        }
+//                        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
+//                    }
 
                     this.game.getLogger().info(userId+".repayMoneyStask: money ="+moneyOfUser +", sumMoneyBefore="+result.before.doubleValue()+", sumMoneyAfter="+result.after.doubleValue());
                 }
@@ -912,7 +912,7 @@ public abstract class GameController implements Runnable {
                 }
             }
 
-            sendLogBalanceUpdate(u, idDBUser, value, reasonId, moneyOfUserBefore, moneyOfUser);
+//            sendLogBalanceUpdate(u, idDBUser, value, reasonId, moneyOfUserBefore, moneyOfUser);
 
             return true;
         } catch (Exception e) {
@@ -2107,29 +2107,29 @@ public abstract class GameController implements Runnable {
 
             updateMoneyStackOfUser(user, result.stack);
             
-            UserBalanceUpdate ubu = new UserBalanceUpdate();
-            ubu.setPlayerId(userId);
-            ubu.setEmail(userState.getEmail());
-            ubu.setSessionId(userState.getSessionId());
-            ubu.setServiceId(getServiceId());
-            ubu.setRequestId(Utils.md5String(userId + moneyStack.doubleValue() + System.currentTimeMillis()));
-            ubu.setLogId(ubu.getRequestId());
-            ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
-            ubu.setCreatedAt(System.currentTimeMillis() / 1000);
-            ubu.setBalance(result.after);
-            ubu.setChange(moneyStack);
-            ubu.setLastBalance(result.before);
-            ubu.setDescription("Buy stack in lobby");
-            ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_PLAY_GAME);
-            ubu.setChannel(Database.instance.getUserChannel(userId));
-            if (moneyType == MoneyContants.MONEY) {
-                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
-                ubu.setUnit("real");
-            } else {
-                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
-                ubu.setUnit("point");
-            }
-            QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
+//            UserBalanceUpdate ubu = new UserBalanceUpdate();
+//            ubu.setPlayerId(userId);
+//            ubu.setEmail(userState.getEmail());
+//            ubu.setSessionId(userState.getSessionId());
+//            ubu.setServiceId(getServiceId());
+//            ubu.setRequestId(Utils.md5String(userId + moneyStack.doubleValue() + System.currentTimeMillis()));
+//            ubu.setLogId(ubu.getRequestId());
+//            ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
+//            ubu.setCreatedAt(System.currentTimeMillis() / 1000);
+//            ubu.setBalance(result.after);
+//            ubu.setChange(moneyStack);
+//            ubu.setLastBalance(result.before);
+//            ubu.setDescription("Buy stack in lobby");
+//            ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_PLAY_GAME);
+//            ubu.setChannel(Database.instance.getUserChannel(userId));
+//            if (moneyType == MoneyContants.MONEY) {
+//                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
+//                ubu.setUnit("real");
+//            } else {
+//                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
+//                ubu.setUnit("point");
+//            }
+//            QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
             
             this.game.getLogger().info("buy stack in lobby success: money buy = "+moneyStack.doubleValue() +", sumMoneyBefore ="+result.before.doubleValue() +", sumMoneyafter ="+result.after.doubleValue());
             return true;
@@ -2700,29 +2700,29 @@ public abstract class GameController implements Runnable {
             userState.setIsUpdateMoneySum(true);
             HazelcastUtil.updateUserState(userState);
 
-            UserBalanceUpdate ubu = new UserBalanceUpdate();
-            ubu.setPlayerId(userId);
-            ubu.setServiceId(getServiceId());
-            ubu.setEmail(userState.getEmail());
-            ubu.setSessionId(userState.getSessionId());
-            ubu.setRequestId(Utils.md5String(userId + money.doubleValue() + System.currentTimeMillis()));
-            ubu.setLogId(ubu.getRequestId());
-            ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
-            ubu.setCreatedAt(System.currentTimeMillis() / 1000);
-            ubu.setBalance(result.before);
-            ubu.setChange(money.negate());
-            ubu.setLastBalance(result.before);
-            ubu.setDescription("Buy stack in game");
-            ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_PLAY_GAME);
-            ubu.setChannel(Database.instance.getUserChannel(userId));
-            if (moneyType == MoneyContants.MONEY) {
-                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
-                ubu.setUnit("real");
-            } else {
-                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
-                ubu.setUnit("point");
-            }
-            QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
+//            UserBalanceUpdate ubu = new UserBalanceUpdate();
+//            ubu.setPlayerId(userId);
+//            ubu.setServiceId(getServiceId());
+//            ubu.setEmail(userState.getEmail());
+//            ubu.setSessionId(userState.getSessionId());
+//            ubu.setRequestId(Utils.md5String(userId + money.doubleValue() + System.currentTimeMillis()));
+//            ubu.setLogId(ubu.getRequestId());
+//            ubu.setConnectionId(ServerConfig.getInstance().getConnectionId());
+//            ubu.setCreatedAt(System.currentTimeMillis() / 1000);
+//            ubu.setBalance(result.before);
+//            ubu.setChange(money.negate());
+//            ubu.setLastBalance(result.before);
+//            ubu.setDescription("Buy stack in game");
+//            ubu.setPaymentFlow(UserBalanceUpdate.PAYMENT_FLOW_PLAY_GAME);
+//            ubu.setChannel(Database.instance.getUserChannel(userId));
+//            if (moneyType == MoneyContants.MONEY) {
+//                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_MONEY, Locale.ENGLISH));
+//                ubu.setUnit("real");
+//            } else {
+//                ubu.setCurrency(GameLanguage.getMessage(GameLanguage.NAME_POINT, Locale.ENGLISH));
+//                ubu.setUnit("point");
+//            }
+//            QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
             //update lại tẩy của user
             updateMoneyStackOfUser(user, result.stack);
             this.game.getLogger().info(userId+" buy stack success: buy ="+money.doubleValue()+", sumMoneyBeforer="+result.before.doubleValue()+", sumMoneyAfter="+result.after.doubleValue());

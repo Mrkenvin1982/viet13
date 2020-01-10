@@ -678,12 +678,12 @@ public abstract class GameController implements Runnable {
                 //trả tiền lại cho user
                 repayMoneyStask(playerLeave);
                 HazelcastUtil.removePlayingBoard(idUser);
-                room.removeUser(playerLeave);
             }
         } catch (Exception e) {
             this.game.getLogger().error("GameController.forceLogoutUser() error: ", e);
         }
         sendLeaveRoomMessage(playerLeave);
+        room.removeUser(playerLeave);
         //khi user disable mạng, tắt wifi thì sẽ bị delay 5s
 //        this.game.getApi().kickUser(playerLeave, null, " ", 0);
     }

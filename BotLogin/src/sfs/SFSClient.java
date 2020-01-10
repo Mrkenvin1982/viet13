@@ -34,6 +34,7 @@ import sfs2x.client.core.BaseEvent;
 import sfs2x.client.core.IEventListener;
 import sfs2x.client.core.SFSEvent;
 import sfs2x.client.entities.Room;
+import sfs2x.client.entities.User;
 import sfs2x.client.requests.ExtensionRequest;
 import sfs2x.client.requests.JoinRoomRequest;
 import sfs2x.client.requests.LoginRequest;
@@ -59,6 +60,7 @@ public final class SFSClient implements IEventListener {
     private String userId;
     private final String password = "t12345";
     private final String host = "127.0.0.1";
+//    private final String host = "34.218.225.34";
     private final int port = 9933;
     private final String zone = "Z88Zone";
     private String name;
@@ -81,6 +83,7 @@ public final class SFSClient implements IEventListener {
         sfs.addEventListener(SFSEvent.LOGIN_ERROR, this);
         sfs.addEventListener(SFSEvent.LOGOUT, this);
         sfs.addEventListener(SFSEvent.ROOM_JOIN, this);
+        sfs.addEventListener(SFSEvent.USER_EXIT_ROOM, this);
         sfs.addEventListener(SFSEvent.EXTENSION_RESPONSE, new IEventListener() {
             @Override
             public void dispatch(BaseEvent e) throws SFSException {
@@ -88,19 +91,26 @@ public final class SFSClient implements IEventListener {
                 SFSObject sfsObj = (SFSObject) e.getArguments().get("params");
                 log.info("cmd: " + cmd);
                 log.info(sfsObj.getDump());
-                int action = sfsObj.containsKey(SFSKey.ACTION_INCORE) ? sfsObj.getInt(SFSKey.ACTION_INCORE) : sfsObj.getInt(SFSKey.ACTION_INGAME);
-                switch (action) {
-                    case SFSAction.JOIN_ZONE_SUCCESS:
-                        requestInfoAllGame();
-                        break;
-                    case SFSAction.PLAY_TAIXIU:
-                        break;
-                    case SFSAction.REQUEST_INFOR_ALL_GAME:
-                        joinLobby();
-                        break;
-                    case SFSAction.LOBBY_LIST_COUNTER:
-                        buyStack(1000.0);
-                        break;
+                if (cmd.equals(SFSCommand.CLIENT_REQUEST)) {
+                    switch (sfsObj.getInt(SFSKey.ACTION_INCORE)) {
+                        case SFSAction.JOIN_ZONE_SUCCESS:
+                            requestInfoAllGame();
+                            break;
+                        case SFSAction.PLAY_TAIXIU:
+                            break;
+                        case SFSAction.REQUEST_INFOR_ALL_GAME:
+                            joinLobby();
+                            break;
+                    }
+                } else {
+                    int action = sfsObj.containsKey(SFSKey.ACTION_INCORE) ? sfsObj.getInt(SFSKey.ACTION_INCORE) : sfsObj.getInt(SFSKey.ACTION_INGAME);
+                    switch (action) {
+                        case SFSAction.LOBBY_LIST_COUNTER:
+                            buyStack(1000.0);
+                            break;
+                        case SFSAction.LEAVE_GAME:
+                            break;
+                    }
                 }
             }
         });
@@ -110,6 +120,7 @@ public final class SFSClient implements IEventListener {
 
     @Override
     public void dispatch(BaseEvent evt) throws SFSException {
+        log.info("event: " + evt.getType());
         switch (evt.getType()) {
             case SFSEvent.CONNECTION:
                 boolean success = (Boolean) evt.getArguments().get("success");
@@ -144,7 +155,17 @@ public final class SFSClient implements IEventListener {
             case SFSEvent.ROOM_JOIN:
                 room = (Room) evt.getArguments().get("room");
                 log.info(email + " join room: " + room.getName());
-                getListBetMoney();
+                if (room.isGame()) {
+                    leaveRoom();
+                } else {
+                    getListBetMoney();
+                }
+                break;
+            case SFSEvent.USER_EXIT_ROOM:
+                User user = (User) evt.getArguments().get("user");
+                if (user.isItMe()) {
+                    log.info(email + " leave room: " + room.getName());
+                }
                 break;
         }
     }
@@ -339,5 +360,11 @@ public final class SFSClient implements IEventListener {
         sfsObj.putDouble(SFSKey.MONEY_STACK, betMoney * 10);
         sfsObj.putBool(SFSKey.IS_OWNER, true);
         sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, room));
+    }
+
+    private void leaveRoom() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, SFSAction.LEAVE_GAME);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, room));
     }
 }

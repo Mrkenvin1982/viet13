@@ -678,6 +678,7 @@ public abstract class GameController implements Runnable {
                 //trả tiền lại cho user
                 repayMoneyStask(playerLeave);
                 HazelcastUtil.removePlayingBoard(idUser);
+                room.removeUser(playerLeave);
             }
         } catch (Exception e) {
             this.game.getLogger().error("GameController.forceLogoutUser() error: ", e);
@@ -1089,12 +1090,12 @@ public abstract class GameController implements Runnable {
                     break;
                 case SFSAction.LEAVE_GAME:
                     synchronized (LOCK) {
-                    if (!this.isCanLeave(player)) {
-                        String message = GameLanguage.getMessage(GameLanguage.CANT_LEAVE_GAME_NOW, Utils.getUserLocale(player));
-                        sendToastMessage(message, player, 3);
-                        return;
-                    }
-                    leave(player);
+                        if (!this.isCanLeave(player)) {
+                            String message = GameLanguage.getMessage(GameLanguage.CANT_LEAVE_GAME_NOW, Utils.getUserLocale(player));
+                            sendToastMessage(message, player, 3);
+                            return;
+                        }
+                        leave(player);
                     }
                     break;
                 case SFSAction.AUTO_LEAVE_GAME:
@@ -2419,7 +2420,6 @@ public abstract class GameController implements Runnable {
                 this.game.getLogger().error("run thread GameController error:", e);
             } finally {
                 if (this.room == null || isCanRemoveRoom()) {
-                    this.game.getLogger().info("ready remove room ");
                     isStop.set(true);
                     initialization.set(false);
                     if (this.room != null) {
@@ -2430,10 +2430,11 @@ public abstract class GameController implements Runnable {
                             Board board = HazelcastUtil.getBoardInfor(room.getName());
                             HazelcastUtil.removeBoardInfor(room.getName());
                             HazelcastUtil.removeBoardWaitingInfor(board);
-                            this.game.getLogger().info("room is removed"+room.getName());
-                            this.game.getApi().removeRoom(room);
-                        }else{
-                            this.game.getLogger().info("find room to remove error : "+room.getName());
+                            try {
+                                game.getApi().removeRoom(room);
+                            } catch (Exception e) {
+                                game.getLogger().error("", e);
+                            }
                         }
                     }
                 }

@@ -45,21 +45,16 @@ public class JoinRoomHandler extends BaseServerEventHandler {
                 }
                 return;
             }
-            if ( room.isGame()) {
-                //join room game
-                if(user.isPlayer()){
+            if (room.isGame()) {
+                if (user.isPlayer()) {
                     processJoinGame(room, user);
-                }else{
-                   this.getApi().kickUser(user, null, "",1); 
                 }
             } else {
-                // join lobby
                 processJoinLobby(room,user);   
             }
 
         } catch (Exception e) {
-            this.getLogger().error("SFSUtil JOIN ROOM  error: ", e);
-            this.getApi().kickUser(user,null, "",1);
+            getLogger().error("JOIN ROOM  error: ", e);
         }
     }
     

@@ -55,7 +55,6 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
         //xét tạm tiền cho user
         User user = (User) isfse.getParameter(SFSEventParam.USER);
         String userId = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.ID_DB_USER));
-        boolean isNewUser = false;
         try {
 
             String displayName = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.DISPLAY_NAME));
@@ -92,19 +91,11 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
 
             //trace("email:" + email);
             double money = Database.instance.getUserMoney(userId);
-            double point = Database.instance.getUserPoint(userId);
-            if (money < 0 || point < 0) {    // first login
+            double point = 0;
+            if (money < 0) {    // first login
 //                trace("*********** insert user on first login", userId, displayName, avatar, "***********");
-                boolean newUser = Database.instance.insertNewUser(userId, socialId, displayName, avatar, email, platform, loginType);
-                if (newUser) {
-                    isNewUser = true;
-                    if (money < 0) {
-                        money = 0;
-                    }
-                    if (point < 0) {
-                        point = 0;
-                    }
-                } else {
+                money = Database.instance.insertNewUser(userId, socialId, displayName, avatar, email, platform, loginType);
+                if (money < 0) {
                     trace("error insert new user:", userId, displayName, avatar, email);
                     getApi().kickUser(user, null, "", 1);
                     return;

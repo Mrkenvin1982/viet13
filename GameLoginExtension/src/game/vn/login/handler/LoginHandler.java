@@ -67,13 +67,13 @@ public class LoginHandler extends BaseServerEventHandler {
 
         String userId = authenticate(session, token, loginType, outData, clientInfoObj);
 
-        User user = getApi().getUserByName(userId);
+//        User user = getApi().getUserByName(userId);
         // Đảm bảo user online server chính
-        if (user != null && HazelcastUtil.isExitDevice(userId, clientInfoObj.getUdid())) {
-            SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_ALREADY_LOGGED);
-            errData.addParameter(userId);
-            throw new SFSLoginException(userId + " LOGIN_INACTIVE_ZONE", errData);
-        }
+//        if (user != null && HazelcastUtil.isExitDevice(userId, clientInfoObj.getUdid())) {
+//            SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_ALREADY_LOGGED);
+//            errData.addParameter(userId);
+//            throw new SFSLoginException(userId + " LOGIN_INACTIVE_ZONE", errData);
+//        }
 
         // Đảm bảo phải login và reconnect trên cùng 1 server login
         if (HazelcastUtil.isOnlineOtherLoginServer(userId)) {

@@ -388,24 +388,25 @@ public class Database {
         return email;
     }
 
-    public boolean insertNewUser(String userId, String socialId, String displayName, String avatar, String email, String platform, byte loginType) {
+    public double insertNewUser(String userId, String socialId, String displayName, String avatar, String email, String platform, byte loginType) {
         try (Connection conn = dbManager.getConnection()) {
-            String sql = "CALL `sfs_create_user`(?, ?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, userId);
-                ps.setString(2, socialId);
-                ps.setString(3, displayName);
-                ps.setString(4, avatar);
-                ps.setString(5, email);
-                ps.setString(6, platform);
-                ps.setByte(7, loginType);
-                ps.execute();
-                return true;
+            String sql = "CALL `sfs_create_user`(?, ?, ?, ?, ?, ?, ?, ?)";
+            try (CallableStatement call = conn.prepareCall(sql)) {
+                call.setString(1, userId);
+                call.setString(2, socialId);
+                call.setString(3, displayName);
+                call.setString(4, avatar);
+                call.setString(5, email);
+                call.setString(6, platform);
+                call.setByte(7, loginType);
+                call.registerOutParameter(8, Types.DECIMAL);
+                call.executeUpdate();
+                return call.getBigDecimal(8).doubleValue();
             }
         } catch (Exception e) {
             LOGGER.error("Database.insertNewUser", e);
         }
-        return false;
+        return -1;
     }
 
     /**

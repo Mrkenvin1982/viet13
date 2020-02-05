@@ -27,6 +27,7 @@ import com.smartfoxserver.v2.extensions.ExtensionLogLevel;
 import game.command.SFSAction;
 import game.command.SFSCommand;
 import game.key.SFSKey;
+import game.vn.common.config.GoogleConfig;
 import game.vn.common.config.QueueConfig;
 import game.vn.common.config.RoomConfig;
 import game.vn.common.config.ServerConfig;
@@ -73,15 +74,12 @@ import game.vn.common.lib.api.PointConvertConfig;
 import game.vn.common.lib.api.TransactionHistory;
 import game.vn.common.lib.api.UserReceiveMoneyOffline;
 import game.vn.common.lib.contants.UserType;
+import game.vn.common.lib.iap.GGProductPurchase;
 import game.vn.common.lib.payment.UserBalanceUpdate;
-import game.vn.common.lib.payment.malaya.ChargeInfo;
-import game.vn.common.lib.payment.malaya.ChargePromotionSchedule;
-import game.vn.common.lib.payment.malaya.ChargePromotionTime;
 import game.vn.common.object.PointReceiveInfo;
 import game.vn.common.object.W88VerifyResponseData;
 import game.vn.common.service.BroadcastService;
 import game.vn.util.APIUtils;
-import game.vn.util.DateUtil;
 import game.vn.util.GsonUtil;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.GlobalsUtil;
@@ -169,8 +167,8 @@ public class CommonClientRequest extends BaseClientRequestHandler {
                 case SFSAction.REQUEST_TRANSACTION_HISTORY:
                     processRequestTransHistory(user, isfso);
                     break;
-                case SFSAction.GET_LIST_VIP_INFO:
-                    processRequestGetListVipInfo(user, isfso);
+                case SFSAction.VERIFY_GG_IAP:
+                    verifyGoogleIAP(user, isfso);
                     break;
                 case SFSAction.GET_USER_VIP_INFO:
                     processRequestUserVipInfo(user, isfso);
@@ -250,10 +248,17 @@ public class CommonClientRequest extends BaseClientRequestHandler {
             }
         } catch (Exception e) {
             getLogger().error("CommonClientRequest.processClientMessage", e);
+            sendErrorMessage(user);
         }
     }
 
     private void sendMessage(User user, String message) {
+        ISFSObject isfso = MessageController.getStaticMessage(message);
+        getParentExtension().send(SFSCommand.CLIENT_REQUEST, isfso, user);
+    }
+
+    private void sendErrorMessage(User user) {
+        String message = GameLanguage.getMessage(GameLanguage.ERROR_TRY_AGAIN, Utils.getUserLocale(user));
         ISFSObject isfso = MessageController.getStaticMessage(message);
         getParentExtension().send(SFSCommand.CLIENT_REQUEST, isfso, user);
     }
@@ -818,13 +823,62 @@ public class CommonClientRequest extends BaseClientRequestHandler {
 //        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
     }
 
-    private void processRequestGetListVipInfo(User user, ISFSObject isfso) {
-        VipQueueObj obj = new VipQueueObj();
-        obj.setCommand(VipQueueObj.GET_VIP_INFO_OBJ);
-        obj.setServerId(String.valueOf(ServerConfig.getInstance().getServerId()));
-        obj.setUserid(user.getVariable(UserInforPropertiesKey.ID_DB_USER).getStringValue());
-        obj.setLang(Utils.getUserLocale(user).getLanguage());
-        QueueService.getInstance().sendVipRequest(obj);
+    private static String ggAccessToken = null;
+    
+    private void verifyGoogleIAP(User user, ISFSObject isfso) {
+        String token = isfso.getUtfString(SFSKey.TOKEN);
+        String productId = isfso.getUtfString(SFSKey.PRODUCT_ID);
+        
+        if (ggAccessToken == null) {
+            ggAccessToken = GoogleConfig.getInstance().getAccessToken();
+            if (ggAccessToken.isEmpty()) {
+                String response = APIUtils.getGGAccessToken();
+                JsonObject json = GsonUtil.parse(response).getAsJsonObject();
+                ggAccessToken = json.get("access_token").getAsString();
+                GoogleConfig.getInstance().updateProperties("accesstoken", ggAccessToken);
+                GoogleConfig.getInstance().save();
+            }
+        }
+        
+        String response = APIUtils.getGGProductStatus(productId, token, ggAccessToken);
+        JsonObject json = GsonUtil.parse(response).getAsJsonObject();
+        if (json.has("error")) {
+            response = APIUtils.refreshGGAccessToken(ggAccessToken);
+            json = GsonUtil.parse(response).getAsJsonObject();
+            ggAccessToken = json.get("access_token").getAsString();
+            GoogleConfig.getInstance().updateProperties("accesstoken", ggAccessToken);
+            GoogleConfig.getInstance().save();
+            
+            response = APIUtils.getGGProductStatus(productId, token, ggAccessToken);
+        }
+        
+        GGProductPurchase gpp = GsonUtil.fromJson(response, GGProductPurchase.class);
+        if (!gpp.isPurchased() || gpp.isAcknowledged()) {
+            trace("google purchase fail:", response);
+            return;
+        }
+
+        APIUtils.acknowledgeGGProductPurchase(productId, token, ggAccessToken);
+
+        String products = GoogleConfig.getInstance().getProducts();
+        JsonArray arr = GsonUtil.parse(products).getAsJsonArray();
+        for (JsonElement e : arr) {
+            json = e.getAsJsonObject();
+            if (json.get("productId").getAsString().equals(productId)) {
+                double value = json.get("value").getAsDouble();
+                String userId = user.getVariable(UserInforPropertiesKey.ID_DB_USER).getStringValue();
+                UpdateMoneyResult umr = Database.instance.callUpdateMoneyProcedure(userId, new BigDecimal(value));
+                if (umr != null && umr.after.compareTo(umr.before) != 0) {
+                    Utils.updateMoneyOfUser(user, umr.after.doubleValue());
+                    isfso.putInt(SFSKey.RESULT, 1);
+                    isfso.putDouble(SFSKey.VALUE, value);
+                    isfso.putDouble(SFSKey.MONEY, umr.after.doubleValue());
+                } else {
+                    isfso.putInt(SFSKey.RESULT, 0);
+                }
+                break;
+            }
+        }
     }
 
     private void processRequestUserVipInfo(User user, ISFSObject isfso) {
@@ -863,70 +917,8 @@ public class CommonClientRequest extends BaseClientRequestHandler {
      * @param isfso
      */
     private void getPaymentInfo(User user, ISFSObject isfso) throws Exception {
-        String response = APIUtils.requestPassportPaymentList(String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.ACCESS_TOKEN)));
-        JsonObject json = GsonUtil.parse(response).getAsJsonObject().getAsJsonObject("data").getAsJsonObject("paymentList");
-        isfso.putUtfString(SFSKey.PAYMENT, json.toString());
-
-        response = APIUtils.requestPassportConfig();
-        json = GsonUtil.parse(response).getAsJsonObject().getAsJsonObject("data").getAsJsonObject("configs");
-        isfso.putUtfString(SFSKey.DATA, json.toString());
-
-        boolean cardPromotion = false;
-        boolean mbankPromotion = false;
-        boolean eeziepayPromotion = false;
-        List<ChargePromotionSchedule> promotions = Database.instance.getChargePromotionSchedule();
-        if (promotions != null && !promotions.isEmpty()) {
-            for (ChargePromotionSchedule promotion : promotions) {
-                switch (promotion.getType()) {
-                    case ChargePromotionSchedule.TYPE_CARD:
-                        cardPromotion = getPromotion(promotion);
-                        break;
-                    case ChargePromotionSchedule.TYPE_EEZIEPAY:
-                        eeziepayPromotion = getPromotion(promotion);
-                        break;
-                    case ChargePromotionSchedule.TYPE_MBANK:
-                        mbankPromotion = getPromotion(promotion);
-                        break;
-                }
-            }
-        }
-
-        ChargeInfo info = new ChargeInfo();
-        info.setBanking(Database.instance.getChargeBankingInfo(mbankPromotion, eeziepayPromotion));
-        info.setCard(Database.instance.getChargeCardInfo(cardPromotion));
-        isfso.putUtfString(SFSKey.RATE, GsonUtil.toJson(info));
+        isfso.putUtfString(SFSKey.DATA, GoogleConfig.getInstance().getProducts());
         send(SFSCommand.CLIENT_REQUEST, isfso, user);
-    }
-
-    private boolean getPromotion(ChargePromotionSchedule promotion) {
-        try {
-            if (promotion.getStartDate() != null) {
-                Date nowDate = new Date();
-                Date startDate = DateUtil.parseString(promotion.getStartDate(), "yyyy-MM-dd");
-                Date endDate = DateUtil.parseString(promotion.getEndDate(), "yyyy-MM-dd");
-
-                if (nowDate.before(startDate) || nowDate.after(DateUtil.getEndOfDay(endDate))) {
-                    return false;
-                }
-            }
-
-            List<ChargePromotionTime> listTime = promotion.getTime();
-            Date nowHour = DateUtil.getDateHour(System.currentTimeMillis(), "HH:mm");
-            for (ChargePromotionTime time : listTime) {
-                Date startHour = DateUtil.parseString(time.getStartTime(), "HH:mm");
-                Date endHour = DateUtil.parseString(time.getEndTime(), "HH:mm");
-
-                if (nowHour.before(startHour) || nowHour.after(endHour)) {
-                    continue;
-                }
-
-                return true;
-            }
-        } catch (Exception e) {
-            this.getLogger().error("", e);
-        }
-
-        return false;
     }
 
     /**

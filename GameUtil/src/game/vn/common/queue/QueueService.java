@@ -305,7 +305,7 @@ public class QueueService {
             switch (obj.getCommand()) {
                 case VipQueueObj.GET_VIP_INFO_OBJ:
 
-                    sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.GET_LIST_VIP_INFO);
+                    sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.VERIFY_GG_IAP);
                     sfsObj.putUtfString(SFSKey.VIP_INFO, obj.getData());
                     SmartFoxServer.getInstance().getAPIManager().getSFSApi().sendExtensionResponse(SFSCommand.CLIENT_REQUEST, sfsObj, user, null, false);
                     break;

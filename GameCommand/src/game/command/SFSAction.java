@@ -133,7 +133,7 @@ public class SFSAction {
     //gửi về danh sách mức cược trong màn hinh lobby game cash out
     public static final int LOBBY_LIST_COUNTER= 25;
     //request danh sách VIP INFO
-    public static final int GET_LIST_VIP_INFO = 26;
+    public static final int VERIFY_GG_IAP = 26;
     //request thong tin Vip cua User
     public static final int GET_USER_VIP_INFO = 27;
     //request Z cua user, so Z con doi dc, ty le quy doi

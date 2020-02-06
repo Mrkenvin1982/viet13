@@ -10,8 +10,10 @@ import com.smartfoxserver.v2.entities.SFSRoomRemoveMode;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.variables.RoomVariable;
 import com.smartfoxserver.v2.entities.variables.SFSRoomVariable;
+import com.smartfoxserver.v2.extensions.ExtensionLogLevel;
 import com.smartfoxserver.v2.extensions.SFSExtension;
 import game.command.SFSCommand;
+import game.vn.common.config.GoogleConfig;
 import game.vn.common.config.QueueConfig;
 import game.vn.common.config.RoomConfig;
 import game.vn.common.config.SFSConfig;
@@ -44,6 +46,7 @@ import game.vn.login.handler.ReconnectHandler;
 import game.vn.login.handler.RemoveRoomHandler;
 import game.vn.login.handler.request.CommonClientRequest;
 import game.vn.login.hazelcast.MyEntryListenerLogin;
+import game.vn.util.APIUtils;
 import game.vn.util.GsonUtil;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.Utils;
@@ -70,6 +73,8 @@ public class LoginExt extends SFSExtension{
         createLobbyRoom();
         SFSConfig.init(getParentZone());
         initHazelcast();
+        initGoogleAccessToken();
+
 //        logCCU();   
         //loa từ file config
 //        TournamentManager.getInstance().initAllTournaments();
@@ -456,5 +461,19 @@ public class LoginExt extends SFSExtension{
         HazelcastUtil.removeAllUserState();
         HazelcastUtil.initBoardMap();
         trace("initHazelcast done");
+    }
+
+    private void initGoogleAccessToken() {
+        if (!GoogleConfig.getInstance().getAccessToken().isEmpty()) {
+            return;
+        }
+        try {
+            String response = APIUtils.getGGAccessToken();
+            JsonObject json = GsonUtil.parse(response).getAsJsonObject();
+            GoogleConfig.getInstance().updateProperties("accesstoken", json.get("access_token").getAsString());
+            GoogleConfig.getInstance().save();
+        } catch (Exception e) {
+            trace(ExtensionLogLevel.ERROR, e.getMessage());
+        }
     }
 }

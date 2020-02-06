@@ -823,42 +823,24 @@ public class CommonClientRequest extends BaseClientRequestHandler {
 //        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
     }
 
-    private static String ggAccessToken = null;
-    
     private void verifyGoogleIAP(User user, ISFSObject isfso) {
         String token = isfso.getUtfString(SFSKey.TOKEN);
         String productId = isfso.getUtfString(SFSKey.PRODUCT_ID);
-        
-        if (ggAccessToken == null) {
-            ggAccessToken = GoogleConfig.getInstance().getAccessToken();
-            if (ggAccessToken.isEmpty()) {
-                String response = APIUtils.getGGAccessToken();
-                JsonObject json = GsonUtil.parse(response).getAsJsonObject();
-                ggAccessToken = json.get("access_token").getAsString();
-                GoogleConfig.getInstance().updateProperties("accesstoken", ggAccessToken);
-                GoogleConfig.getInstance().save();
-            }
-        }
-        
-        String response = APIUtils.getGGProductStatus(productId, token, ggAccessToken);
+
+        String response = APIUtils.refreshGGAccessToken(GoogleConfig.getInstance().getAccessToken());
         JsonObject json = GsonUtil.parse(response).getAsJsonObject();
-        if (json.has("error")) {
-            response = APIUtils.refreshGGAccessToken(ggAccessToken);
-            json = GsonUtil.parse(response).getAsJsonObject();
-            ggAccessToken = json.get("access_token").getAsString();
-            GoogleConfig.getInstance().updateProperties("accesstoken", ggAccessToken);
-            GoogleConfig.getInstance().save();
-            
-            response = APIUtils.getGGProductStatus(productId, token, ggAccessToken);
-        }
-        
+        String accessToken = json.get("access_token").getAsString();
+        GoogleConfig.getInstance().updateProperties("accesstoken", accessToken);
+        GoogleConfig.getInstance().save();
+
+        response = APIUtils.getGGProductStatus(productId, token, accessToken);
         GGProductPurchase gpp = GsonUtil.fromJson(response, GGProductPurchase.class);
         if (!gpp.isPurchased() || gpp.isAcknowledged()) {
             trace("google purchase fail:", response);
             return;
         }
 
-        APIUtils.acknowledgeGGProductPurchase(productId, token, ggAccessToken);
+        APIUtils.acknowledgeGGProductPurchase(productId, token, accessToken);
 
         String products = GoogleConfig.getInstance().getProducts();
         JsonArray arr = GsonUtil.parse(products).getAsJsonArray();

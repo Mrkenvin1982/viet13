@@ -28,6 +28,7 @@ import game.command.SFSAction;
 import game.command.SFSCommand;
 import game.key.SFSKey;
 import game.vn.common.config.GoogleConfig;
+import game.vn.common.config.IosConfig;
 import game.vn.common.config.QueueConfig;
 import game.vn.common.config.RoomConfig;
 import game.vn.common.config.ServerConfig;
@@ -74,6 +75,7 @@ import game.vn.common.lib.api.PointConvertConfig;
 import game.vn.common.lib.api.TransactionHistory;
 import game.vn.common.lib.api.UserReceiveMoneyOffline;
 import game.vn.common.lib.contants.UserType;
+import game.vn.common.lib.iap.IosReceiptVerifyResponse;
 import game.vn.common.lib.iap.GGProductPurchase;
 import game.vn.common.lib.payment.UserBalanceUpdate;
 import game.vn.common.object.PointReceiveInfo;
@@ -170,8 +172,8 @@ public class CommonClientRequest extends BaseClientRequestHandler {
                 case SFSAction.VERIFY_GG_IAP:
                     verifyGoogleIAP(user, isfso);
                     break;
-                case SFSAction.GET_USER_VIP_INFO:
-                    processRequestUserVipInfo(user, isfso);
+                case SFSAction.VERIFY_IOS_RECEIPT:
+                    verifyIosReceipt(user, isfso);
                     break;
                 case SFSAction.GET_CASHOUT_Z_INFO:
                     processRequestUserZCashoutInfo(user, isfso);
@@ -863,13 +865,10 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         }
     }
 
-    private void processRequestUserVipInfo(User user, ISFSObject isfso) {
-        VipQueueObj obj = new VipQueueObj();
-        obj.setCommand(VipQueueObj.GET_USER_VIP_DATA);
-        obj.setServerId(String.valueOf(ServerConfig.getInstance().getServerId()));
-        obj.setUserid(user.getVariable(UserInforPropertiesKey.ID_DB_USER).getStringValue());
-        obj.setLang(Utils.getUserLocale(user).getLanguage());
-        QueueService.getInstance().sendVipRequest(obj);
+   private void verifyIosReceipt(User user, ISFSObject isfso) {
+        String receipt = isfso.getUtfString(SFSKey.RECEIPT);
+        String response = APIUtils.verifyIosReceipt(receipt);
+        IosReceiptVerifyResponse fbResponse = GsonUtil.fromJson(response, IosReceiptVerifyResponse.class);
     }
 
     private void processRequestUserZCashoutInfo(User user, ISFSObject isfso) {
@@ -899,7 +898,12 @@ public class CommonClientRequest extends BaseClientRequestHandler {
      * @param isfso
      */
     private void getPaymentInfo(User user, ISFSObject isfso) throws Exception {
-        isfso.putUtfString(SFSKey.DATA, GoogleConfig.getInstance().getProducts());
+        String android = GoogleConfig.getInstance().getProducts();
+        String ios = IosConfig.getInstance().getProducts();
+        JsonObject json = new JsonObject();
+        json.add("ios", GsonUtil.parse(ios));
+        json.add("android", GsonUtil.parse(android));
+        isfso.putUtfString(SFSKey.DATA, json.toString());
         send(SFSCommand.CLIENT_REQUEST, isfso, user);
     }
 

@@ -7,9 +7,11 @@ package game.vn.util;
 
 import com.google.gson.JsonObject;
 import game.vn.common.config.GoogleConfig;
+import game.vn.common.config.IosConfig;
 import game.vn.common.config.ServerConfig;
 import game.vn.common.config.UrlConfig;
 import java.io.IOException;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import org.jsoup.Jsoup;
@@ -292,5 +294,24 @@ public class APIUtils {
         } catch (IOException e) {
             LOGGER.error("acknowledgeGGProductPurchase", e);
         }
+    }
+
+    public static String verifyIosReceipt(String receipt) {
+        Map headers = new HashMap();
+        headers.put("content-type", "application/json");
+        try {
+            String url = IosConfig.getInstance().getIosVerifyReceiptUrl();
+            String appSecret = IosConfig.getInstance().getAppSecret();
+            JsonObject json = new JsonObject();
+            json.addProperty("receipt-data", Base64.getEncoder().encodeToString(receipt.getBytes()));
+            json.addProperty("password", appSecret);
+            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).headers(headers).requestBody(json.toString()).post();
+            String response = doc.body().text();
+            LOGGER.info(url + "?" + json.toString() + "\t" + response);
+            return response;
+        } catch (IOException e) {
+            LOGGER.error("verifyFBReceipt", e);
+        }
+        return null;
     }
 }

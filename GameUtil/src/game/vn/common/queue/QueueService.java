@@ -313,7 +313,7 @@ public class QueueService {
                 case VipQueueObj.GET_USER_VIP_DATA:
                     UserVipData userVipData = GsonUtil.fromJson(obj.getData(), UserVipData.class);
 
-                    sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.GET_USER_VIP_INFO);
+                    sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.VERIFY_IOS_RECEIPT);
                     sfsObj.putUtfString(SFSKey.VIP_RANK, userVipData.getCurrentRank());
                     sfsObj.putUtfString(SFSKey.VIP_STEP, userVipData.getCurrentStep());
                     sfsObj.putUtfString(SFSKey.NEXT_RANK, userVipData.getNextRank());

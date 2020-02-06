@@ -135,7 +135,7 @@ public class SFSAction {
     //request danh sách VIP INFO
     public static final int VERIFY_GG_IAP = 26;
     //request thong tin Vip cua User
-    public static final int VERIFY_FB_RECEIPT = 27;
+    public static final int VERIFY_IOS_RECEIPT = 27;
     //request Z cua user, so Z con doi dc, ty le quy doi
     public static final int GET_CASHOUT_Z_INFO = 28;
     //request doi Z thanh cash

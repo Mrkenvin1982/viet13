@@ -155,6 +155,7 @@ public class SFSKey {
     public static final String LEVEL = "level";
     public static final String ACTION = "action";
     public static final String PAYMENT = "payment";
+    public static final String RECEIPT = "receipt";
 
     //vip
     public static final String VIP_INFO = "vipinfo";

@@ -247,6 +247,8 @@ public class APIUtils {
     }
 
     public static String refreshGGAccessToken(String accessToken) {
+        Map headers = new HashMap();
+        headers.put("content-type", "application/json");
         try {
             String url = GoogleConfig.getInstance().getAuthorizationUrl();
             String clientId = GoogleConfig.getInstance().getClientId();
@@ -256,7 +258,7 @@ public class APIUtils {
             json.addProperty("client_id", clientId);
             json.addProperty("client_secret", clientSecret);
             json.addProperty("refresh_token", accessToken);
-            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).requestBody(json.toString()).post();
+            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).headers(headers).requestBody(json.toString()).post();
             String response = doc.body().text();
             LOGGER.info(url + "?" + json.toString() + "\t" + response);
             return response;

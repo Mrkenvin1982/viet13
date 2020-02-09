@@ -464,16 +464,23 @@ public class LoginExt extends SFSExtension{
     }
 
     private void initGoogleAccessToken() {
-        if (!GoogleConfig.getInstance().getAccessToken().isEmpty()) {
-            return;
-        }
-        try {
+        if (GoogleConfig.getInstance().getAccessToken().isEmpty()) {
             String response = APIUtils.getGGAccessToken();
-            JsonObject json = GsonUtil.parse(response).getAsJsonObject();
-            GoogleConfig.getInstance().updateProperties("accesstoken", json.get("access_token").getAsString());
-            GoogleConfig.getInstance().save();
-        } catch (Exception e) {
-            trace(ExtensionLogLevel.ERROR, e.getMessage());
+            if (response != null) {
+                JsonObject json = GsonUtil.parse(response).getAsJsonObject();
+                GoogleConfig.getInstance().updateProperties("accesstoken", json.get("access_token").getAsString());
+                GoogleConfig.getInstance().save();
+            }
         }
+
+        getApi().getSystemScheduler().scheduleAtFixedRate(() -> {
+            String response = APIUtils.refreshGGAccessToken(GoogleConfig.getInstance().getAccessToken());
+            if (response != null) {
+                JsonObject json1 = GsonUtil.parse(response).getAsJsonObject();
+                String accessToken = json1.get("access_token").getAsString();
+                GoogleConfig.getInstance().updateProperties("accesstoken", accessToken);
+                GoogleConfig.getInstance().save();
+            }
+        }, 1, 1, TimeUnit.HOURS);
     }
 }

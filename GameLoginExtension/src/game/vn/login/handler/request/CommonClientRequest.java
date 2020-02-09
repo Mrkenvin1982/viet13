@@ -829,13 +829,8 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         String token = isfso.getUtfString(SFSKey.TOKEN);
         String productId = isfso.getUtfString(SFSKey.PRODUCT_ID);
 
-        String response = APIUtils.refreshGGAccessToken(GoogleConfig.getInstance().getAccessToken());
-        JsonObject json = GsonUtil.parse(response).getAsJsonObject();
-        String accessToken = json.get("access_token").getAsString();
-        GoogleConfig.getInstance().updateProperties("accesstoken", accessToken);
-        GoogleConfig.getInstance().save();
-
-        response = APIUtils.getGGProductStatus(productId, token, accessToken);
+        String accessToken = GoogleConfig.getInstance().getAccessToken();
+        String response = APIUtils.getGGProductStatus(productId, token, accessToken);
         GGProductPurchase gpp = GsonUtil.fromJson(response, GGProductPurchase.class);
         if (!gpp.isPurchased() || gpp.isAcknowledged()) {
             trace("google purchase fail:", response);
@@ -847,7 +842,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         String products = GoogleConfig.getInstance().getProducts();
         JsonArray arr = GsonUtil.parse(products).getAsJsonArray();
         for (JsonElement e : arr) {
-            json = e.getAsJsonObject();
+            JsonObject json = e.getAsJsonObject();
             if (json.get("productId").getAsString().equals(productId)) {
                 double value = json.get("value").getAsDouble();
                 String userId = user.getVariable(UserInforPropertiesKey.ID_DB_USER).getStringValue();

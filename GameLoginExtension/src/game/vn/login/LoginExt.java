@@ -10,10 +10,8 @@ import com.smartfoxserver.v2.entities.SFSRoomRemoveMode;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.variables.RoomVariable;
 import com.smartfoxserver.v2.entities.variables.SFSRoomVariable;
-import com.smartfoxserver.v2.extensions.ExtensionLogLevel;
 import com.smartfoxserver.v2.extensions.SFSExtension;
 import game.command.SFSCommand;
-import game.vn.common.config.GoogleConfig;
 import game.vn.common.config.QueueConfig;
 import game.vn.common.config.RoomConfig;
 import game.vn.common.config.SFSConfig;
@@ -36,7 +34,6 @@ import game.vn.common.queue.QueueServicePayment;
 import game.vn.common.queue.QueueTaiXiu;
 import game.vn.common.queue.QueueUserManager;
 import game.vn.common.queue.updateconfig.QueueUpdateConfig;
-import game.vn.common.tournament.TournamentManager;
 import game.vn.login.handler.AddRoomHandler;
 import game.vn.login.handler.DisconnectHandler;
 import game.vn.login.handler.JoinZoneEventHandler;
@@ -46,7 +43,6 @@ import game.vn.login.handler.ReconnectHandler;
 import game.vn.login.handler.RemoveRoomHandler;
 import game.vn.login.handler.request.CommonClientRequest;
 import game.vn.login.hazelcast.MyEntryListenerLogin;
-import game.vn.util.APIUtils;
 import game.vn.util.GsonUtil;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.Utils;
@@ -73,11 +69,6 @@ public class LoginExt extends SFSExtension{
         createLobbyRoom();
         SFSConfig.init(getParentZone());
         initHazelcast();
-        initGoogleAccessToken();
-
-//        logCCU();   
-        //loa từ file config
-//        TournamentManager.getInstance().initAllTournaments();
         trace("LoginExt init done.");
     }
     
@@ -463,24 +454,4 @@ public class LoginExt extends SFSExtension{
         trace("initHazelcast done");
     }
 
-    private void initGoogleAccessToken() {
-        if (GoogleConfig.getInstance().getAccessToken().isEmpty()) {
-            String response = APIUtils.getGGAccessToken();
-            if (response != null) {
-                JsonObject json = GsonUtil.parse(response).getAsJsonObject();
-                GoogleConfig.getInstance().updateProperties("accesstoken", json.get("access_token").getAsString());
-                GoogleConfig.getInstance().save();
-            }
-        }
-
-        getApi().getSystemScheduler().scheduleAtFixedRate(() -> {
-            String response = APIUtils.refreshGGAccessToken(GoogleConfig.getInstance().getAccessToken());
-            if (response != null) {
-                JsonObject json1 = GsonUtil.parse(response).getAsJsonObject();
-                String accessToken = json1.get("access_token").getAsString();
-                GoogleConfig.getInstance().updateProperties("accesstoken", accessToken);
-                GoogleConfig.getInstance().save();
-            }
-        }, 1, 1, TimeUnit.HOURS);
-    }
 }

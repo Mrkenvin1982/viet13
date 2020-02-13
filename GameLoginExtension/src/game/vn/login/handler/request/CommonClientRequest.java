@@ -5,6 +5,12 @@
  */
 package game.vn.login.handler.request;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.AndroidPublisherScopes;
+import com.google.api.services.androidpublisher.model.ProductPurchase;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -76,7 +82,6 @@ import game.vn.common.lib.api.TransactionHistory;
 import game.vn.common.lib.api.UserReceiveMoneyOffline;
 import game.vn.common.lib.contants.UserType;
 import game.vn.common.lib.iap.IosReceiptVerifyResponse;
-import game.vn.common.lib.iap.GGProductPurchase;
 import game.vn.common.lib.payment.UserBalanceUpdate;
 import game.vn.common.object.PointReceiveInfo;
 import game.vn.common.object.W88VerifyResponseData;
@@ -90,8 +95,12 @@ import game.vn.util.db.Database;
 import game.vn.util.db.TransferMoneyResult;
 import game.vn.util.db.UpdateMoneyResult;
 import game.vn.util.watchservice.TaiXiuConfig;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -825,19 +834,27 @@ public class CommonClientRequest extends BaseClientRequestHandler {
 //        QueueServiceApi.getInstance().sendData(QueueConfig.getInstance().getKeyBalance(), true, ubu);
     }
 
-    private void verifyGoogleIAP(User user, ISFSObject isfso) {
+    
+    private static GoogleCredential credential;
+    private static AndroidPublisher publisher;
+
+    private void verifyGoogleIAP(User user, ISFSObject isfso) throws FileNotFoundException, IOException, GeneralSecurityException {
         String token = isfso.getUtfString(SFSKey.TOKEN);
         String productId = isfso.getUtfString(SFSKey.PRODUCT_ID);
 
-        String accessToken = GoogleConfig.getInstance().getAccessToken();
-        String response = APIUtils.getGGProductStatus(productId, token, accessToken);
-        GGProductPurchase gpp = GsonUtil.fromJson(response, GGProductPurchase.class);
-        if (!gpp.isPurchased() || gpp.isAcknowledged()) {
-            trace("google purchase fail:", response);
-            return;
+        if (credential == null) {
+            credential = GoogleCredential.fromStream(new FileInputStream("conf/gg_service_account.json"))
+                .createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
+            publisher = new AndroidPublisher.Builder(GoogleNetHttpTransport.newTrustedTransport(), JacksonFactory.getDefaultInstance(), credential)
+                    .setApplicationName(GoogleConfig.getInstance().getAppName()).build();
+            trace("google init");
         }
-
-        APIUtils.acknowledgeGGProductPurchase(productId, token, accessToken);
+        
+        String packageName = GoogleConfig.getInstance().getPackageName();
+        
+        ProductPurchase product = publisher.purchases().products().get(packageName, productId, token).execute();
+        trace(product.toString());
+        publisher.purchases().products().acknowledge(packageName, productId, token, null);
 
         String products = GoogleConfig.getInstance().getProducts();
         JsonArray arr = GsonUtil.parse(products).getAsJsonArray();
@@ -852,9 +869,11 @@ public class CommonClientRequest extends BaseClientRequestHandler {
                     isfso.putInt(SFSKey.RESULT, 1);
                     isfso.putDouble(SFSKey.VALUE, value);
                     isfso.putDouble(SFSKey.MONEY, umr.after.doubleValue());
+                    Utils.updateMoneyOfUser(user, umr.after.doubleValue());
                 } else {
                     isfso.putInt(SFSKey.RESULT, 0);
                 }
+                send(SFSCommand.CLIENT_REQUEST, isfso, user);
                 break;
             }
         }

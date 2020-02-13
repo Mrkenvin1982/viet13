@@ -6,7 +6,6 @@
 package game.vn.util;
 
 import com.google.gson.JsonObject;
-import game.vn.common.config.GoogleConfig;
 import game.vn.common.config.IosConfig;
 import game.vn.common.config.ServerConfig;
 import game.vn.common.config.UrlConfig;
@@ -229,71 +228,6 @@ public class APIUtils {
             LOGGER.error("Error reading URL content: " + url + "?", e);
         }
         return null;
-    }
-
-    public static String getGGAccessToken() {
-        try {
-            String url = GoogleConfig.getInstance().getAuthorizationUrl();
-            String code = GoogleConfig.getInstance().getAuthorizationCode();
-            String clientId = GoogleConfig.getInstance().getClientId();
-            String clientSecret = GoogleConfig.getInstance().getClientSecret();
-            String data = String.format("grant_type=authorization_code&code=%s&client_id=%s&client_secret=%s&redirect_uri=http://localhost", code, clientId, clientSecret);
-            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).requestBody(data).post();
-            String response = doc.body().text();
-            LOGGER.info(url + "?" + data + "\t" + response);
-            return response;
-        } catch (IOException e) {
-            LOGGER.error("getGGAccessToken", e);
-        }
-        return null;
-    }
-
-    public static String refreshGGAccessToken(String accessToken) {
-        Map headers = new HashMap();
-        headers.put("content-type", "application/json");
-        try {
-            String url = GoogleConfig.getInstance().getAuthorizationUrl();
-            String clientId = GoogleConfig.getInstance().getClientId();
-            String clientSecret = GoogleConfig.getInstance().getClientSecret();
-            JsonObject json = new JsonObject();
-            json.addProperty("grant_type", "refresh_token");
-            json.addProperty("client_id", clientId);
-            json.addProperty("client_secret", clientSecret);
-            json.addProperty("refresh_token", accessToken);
-            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).headers(headers).requestBody(json.toString()).post();
-            String response = doc.body().text();
-            LOGGER.info(url + "?" + json.toString() + "\t" + response);
-            return response;
-        } catch (IOException e) {
-            LOGGER.error("refreshGGAccessToken", e);
-        }
-        return null;
-    }
-
-    public static String getGGProductStatus(String productId, String token, String accessToken) {
-        try {
-            String url = GoogleConfig.getInstance().getPurchaseUrl()+ "?access_token=" + accessToken;
-            url = String.format(url, GoogleConfig.getInstance().getPackageName(), productId, token);
-            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).get();
-            String response = doc.body().text();
-            LOGGER.info(url + "\t" + response);
-            return response;
-        } catch (IOException e) {
-            LOGGER.error("getGGProductStatus", e);
-        }
-        return null;
-    }
-
-    public static void acknowledgeGGProductPurchase(String productId, String token, String accessToken) {
-        try {
-            String url = GoogleConfig.getInstance().getPurchaseUrl() + ":acknowledge?access_token=" + accessToken;
-            url = String.format(url, GoogleConfig.getInstance().getPackageName(), productId, token);
-            Document doc = Jsoup.connect(url).timeout(ServerConfig.getInstance().apiTimeoutRequest()).ignoreContentType(true).get();
-            String response = doc.body().text();
-            LOGGER.info(url + "\t" + response);
-        } catch (IOException e) {
-            LOGGER.error("acknowledgeGGProductPurchase", e);
-        }
     }
 
     public static String verifyIosReceipt(String receipt) {

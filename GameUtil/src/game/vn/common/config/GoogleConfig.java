@@ -22,38 +22,14 @@ public class GoogleConfig extends PropertyConfigurator {
         super(path, nameFile);
     }
     
-    public String getAuthorizationUrl() {
-        return getStringAttribute("url.authorization", "https://accounts.google.com/o/oauth2/token");
-    }
-    
-    public String getListProductUrl() {
-        return getStringAttribute("url.products", "https://www.googleapis.com/androidpublisher/v3/applications/%s/inappproducts");
-    }
-    
-    public String getPurchaseUrl() {
-        return getStringAttribute("url.purchase", "https://www.googleapis.com/androidpublisher/v3/applications/%s/purchases/products/%s/tokens/%s");
-    }
-    
     public String getPackageName() {
         return getStringAttribute("packagename", "com.funfun.thirteen");
     }
 
-    public String getAuthorizationCode() {
-        return getStringAttribute("authcode");
+    public String getAppName() {
+        return getStringAttribute("appname", "Thirteen Card");
     }
-    
-    public String getAccessToken() {
-        return getStringAttribute("accesstoken");
-    }
-    
-    public String getClientId() {
-        return getStringAttribute("clientid", "964907037117-dsnq9546ldq8o8vi2jocp2n1jdkrhlg0.apps.googleusercontent.com");
-    }
-    
-    public String getClientSecret() {
-        return getStringAttribute("clientsecret", "H-h3E8m1mvdkzbe4UH-TOa5r");
-    }
-    
+
     public String getProducts() {
         return getStringAttribute("products");
     }

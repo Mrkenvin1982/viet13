@@ -38,6 +38,7 @@ import game.vn.common.properties.UserInforPropertiesKey;
 import game.vn.util.GsonUtil;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.db.Database;
+import java.util.Random;
 import org.apache.commons.lang.RandomStringUtils;
 
 /**
@@ -137,9 +138,12 @@ public class LoginHandler extends BaseServerEventHandler {
                         do {
                             userId = RandomStringUtils.randomNumeric(12);
                             if (!Database.instance.checkUserIdExist(userId)) {
+                                avatar = String.valueOf(new Random().nextInt(6));
                                 break;
                             }
                         } while (true);
+                    } else {
+                        avatar = Database.instance.getUserAvatar(userId);
                     }
                     displayName = user.getName();
                     if (user.getEmail() != null) {
@@ -157,6 +161,7 @@ public class LoginHandler extends BaseServerEventHandler {
                         do {
                             userId = RandomStringUtils.randomNumeric(12);
                             if (!Database.instance.checkUserIdExist(userId)) {
+                                avatar = String.valueOf(new Random().nextInt(6));
                                 break;
                             }
                         } while (true);
@@ -164,6 +169,7 @@ public class LoginHandler extends BaseServerEventHandler {
                     } else {
                         if (Database.instance.checkUserIdExist(userId)) {
                             displayName = Database.instance.getDisplayName(userId);
+                            avatar = Database.instance.getUserAvatar(userId);
                         } else {
                             SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_BAD_PASSWORD);
                             errData.addParameter(token);

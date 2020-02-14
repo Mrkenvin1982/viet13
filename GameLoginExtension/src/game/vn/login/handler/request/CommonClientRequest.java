@@ -11,6 +11,7 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.api.services.androidpublisher.model.ProductPurchase;
+import com.google.api.services.androidpublisher.model.ProductPurchasesAcknowledgeRequest;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -853,8 +854,10 @@ public class CommonClientRequest extends BaseClientRequestHandler {
         String packageName = GoogleConfig.getInstance().getPackageName();
         
         ProductPurchase product = publisher.purchases().products().get(packageName, productId, token).execute();
-        trace(product.toString());
-        publisher.purchases().products().acknowledge(packageName, productId, token, null);
+        trace(product.getProductId(), product.toString());
+        ProductPurchasesAcknowledgeRequest ppar = new ProductPurchasesAcknowledgeRequest();
+        ppar.setDeveloperPayload(product.getDeveloperPayload());
+        publisher.purchases().products().acknowledge(packageName, productId, token, ppar);
 
         String products = GoogleConfig.getInstance().getProducts();
         JsonArray arr = GsonUtil.parse(products).getAsJsonArray();

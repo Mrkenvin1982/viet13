@@ -29,6 +29,10 @@ public class GoogleConfig extends PropertyConfigurator {
     public String getAppName() {
         return getStringAttribute("appname", "Thirteen Card");
     }
+    
+    public String getClientId() {
+        return getStringAttribute("clientid", "964907037117-dsnq9546ldq8o8vi2jocp2n1jdkrhlg0.apps.googleusercontent.com");
+    }
 
     public String getProducts() {
         return getStringAttribute("products");

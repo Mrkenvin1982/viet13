@@ -5,6 +5,10 @@
  */
 package game.vn.login.handler;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.restfb.DefaultFacebookClient;
 import com.restfb.FacebookClient;
 import com.restfb.FacebookClient.DebugTokenInfo;
@@ -14,7 +18,6 @@ import com.smartfoxserver.bitswarm.sessions.ISession;
 import com.smartfoxserver.v2.core.ISFSEvent;
 import com.smartfoxserver.v2.core.SFSConstants;
 import com.smartfoxserver.v2.core.SFSEventParam;
-import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 import com.smartfoxserver.v2.exceptions.SFSErrorCode;
@@ -25,6 +28,7 @@ import com.smartfoxserver.v2.extensions.BaseServerEventHandler;
 import com.smartfoxserver.v2.extensions.ExtensionLogLevel;
 import com.smartfoxserver.v2.util.MD5;
 import game.key.SFSKey;
+import game.vn.common.config.GoogleConfig;
 import game.vn.common.config.RoomConfig;
 import game.vn.common.config.SFSConfig;
 import game.vn.common.config.ServerConfig;
@@ -38,6 +42,7 @@ import game.vn.common.properties.UserInforPropertiesKey;
 import game.vn.util.GsonUtil;
 import game.vn.util.HazelcastUtil;
 import game.vn.util.db.Database;
+import java.util.Collections;
 import java.util.Random;
 import org.apache.commons.lang.RandomStringUtils;
 
@@ -47,6 +52,7 @@ import org.apache.commons.lang.RandomStringUtils;
  */
 public class LoginHandler extends BaseServerEventHandler {
 
+    private static GoogleIdTokenVerifier googleIdTokenVerifier;
     @Override
     public void handleServerEvent(ISFSEvent isfse) throws SFSException {
         SFSObject params = (SFSObject) isfse.getParameter(SFSEventParam.LOGIN_IN_DATA);
@@ -149,12 +155,35 @@ public class LoginHandler extends BaseServerEventHandler {
                     if (user.getEmail() != null) {
                         email = user.getEmail();
                     }
-//                    if (user.getPicture() != null) {
-//                        avatar = user.getPicture().getUrl();
-//                    }
                     break;
                 case ExtensionConstant.LOGIN_TYPE_GG:
-                    userId = loginGG(token);
+                    try {
+                        if (googleIdTokenVerifier == null) {
+                            googleIdTokenVerifier = new GoogleIdTokenVerifier.Builder(GoogleNetHttpTransport.newTrustedTransport(), JacksonFactory.getDefaultInstance())
+                                    .setAudience(Collections.singletonList(GoogleConfig.getInstance().getClientId())).build();
+                        }
+                        GoogleIdToken idToken = googleIdTokenVerifier.verify(token);
+                        GoogleIdToken.Payload payload = idToken.getPayload();
+                        socialId = idToken.getPayload().getSubject();
+                        userId = Database.instance.getUserIdBySocialId(socialId);
+                        if (userId == null) {
+                            do {
+                                userId = RandomStringUtils.randomNumeric(12);
+                                if (!Database.instance.checkUserIdExist(userId)) {
+                                    avatar = String.valueOf(new Random().nextInt(6));
+                                    break;
+                                }
+                            } while (true);
+                        } else {
+                            avatar = Database.instance.getUserAvatar(userId);
+                        }
+                        displayName = (String)payload.get("name");
+                        email = payload.getEmail();
+                    } catch (Exception ex) {
+                        SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_BAD_PASSWORD);
+                        errData.addParameter(token);
+                        throw new SFSLoginException("LOGIN_BAD_PASSWORD", errData);
+                    }
                     break;
                 default:
                     if (userId.isEmpty()) {

@@ -62,7 +62,7 @@ public class LoginHandler extends BaseServerEventHandler {
         String token = params.getUtfString(SFSKey.LOGIN_TOKEN);
         byte loginType = params.getByte(SFSKey.LOGIN_TYPE);
         String clientInfo = params.getUtfString(SFSKey.CLIENT_INFO);
-        this.getLogger().info("Client new login :" + token + " - " + clientInfo);
+        trace("Client new login :" + params.getDump());
 
         ClientInfo clientInfoObj = null;
 
@@ -163,6 +163,12 @@ public class LoginHandler extends BaseServerEventHandler {
                                     .setAudience(Collections.singletonList(GoogleConfig.getInstance().getClientId())).build();
                         }
                         GoogleIdToken idToken = googleIdTokenVerifier.verify(token);
+                        if (idToken == null) {
+                            trace(ExtensionLogLevel.ERROR, "invalid google id token");
+                            SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_BAD_PASSWORD);
+                            errData.addParameter(token);
+                            throw new SFSLoginException("LOGIN_BAD_PASSWORD", errData);
+                        }
                         GoogleIdToken.Payload payload = idToken.getPayload();
                         socialId = idToken.getPayload().getSubject();
                         userId = Database.instance.getUserIdBySocialId(socialId);
@@ -180,6 +186,7 @@ public class LoginHandler extends BaseServerEventHandler {
                         displayName = (String)payload.get("name");
                         email = payload.getEmail();
                     } catch (Exception ex) {
+                        getLogger().error("login google error", ex);
                         SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_BAD_PASSWORD);
                         errData.addParameter(token);
                         throw new SFSLoginException("LOGIN_BAD_PASSWORD", errData);
@@ -218,7 +225,7 @@ public class LoginHandler extends BaseServerEventHandler {
             return userId;
 
         } catch (SFSLoginException ex) {
-            this.getLogger().error("authenticate: ", ex);
+            this.getLogger().error("authenticate error", ex);
             SFSErrorData errData = new SFSErrorData(SFSErrorCode.LOGIN_BAD_PASSWORD);
             errData.addParameter(token);
             throw new SFSLoginException("LOGIN EXCEPTON", errData);

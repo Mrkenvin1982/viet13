@@ -60,7 +60,7 @@ public class JoinZoneEventHandler extends BaseServerEventHandler {
             String displayName = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.DISPLAY_NAME));
             String avatar = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.AVATAR));
             String email = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.EMAIL));
-            String socialId = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.EMAIL));
+            String socialId = String.valueOf(user.getSession().getProperty(UserInforPropertiesKey.SOCIAL_ID));
             byte loginType = (byte) user.getSession().getProperty(UserInforPropertiesKey.LOGIN_TYPE);
             ClientInfo clientInfo = (ClientInfo) user.getSession().getProperty(UserInforPropertiesKey.CLIENT_INFOR);
 

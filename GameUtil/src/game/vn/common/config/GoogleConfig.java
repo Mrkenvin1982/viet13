@@ -31,7 +31,7 @@ public class GoogleConfig extends PropertyConfigurator {
     }
     
     public String getClientId() {
-        return getStringAttribute("clientid", "964907037117-dsnq9546ldq8o8vi2jocp2n1jdkrhlg0.apps.googleusercontent.com");
+        return getStringAttribute("clientid", "674225541554-n4sigolk9v8t146asmu3f3fd5eh8qss8.apps.googleusercontent.com");
     }
 
     public String getProducts() {

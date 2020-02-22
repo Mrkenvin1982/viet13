@@ -497,10 +497,6 @@ public class CommonClientRequest extends BaseClientRequestHandler {
                     continue;
                 }
 
-                if (ServerConfig.getInstance().isCloseRealMoney()) {
-                    continue;
-                }
-
                 SFSObject obj = new SFSObject();
                 obj.putUtfString("name", nameLobby);
                 obj.putInt("pennalizeFactor", roomLobby.getPenalize());
@@ -619,19 +615,9 @@ public class CommonClientRequest extends BaseClientRequestHandler {
      * @param isfso
      */
     private void getRankingLeaderBoardInfo(User user, ISFSObject isfso) {
-        LeaderboardObject obj = new LeaderboardObject();
-        int command = isfso.getInt(SFSKey.COMMAND);
-        if (command == LeaderboardObject.SWITCH_EVENT_JOIN_STATUS) {
-            obj.setStatus(isfso.getBool(SFSKey.STATUS));
-        } else {
-            obj.setServiceId(isfso.getInt(SFSKey.SERVICE_ID));
-            obj.setPage(isfso.getInt(SFSKey.PAGE));
-        }
-
-        obj.setCommand(command);
-        obj.setServerId(String.valueOf(ServerConfig.getInstance().getServerId()));
-        obj.setUserid(user.getVariable(UserInforPropertiesKey.ID_DB_USER).getStringValue());
-        QueueService.getInstance().sendRankingRequest(obj);
+        JsonArray arr = Database.instance.getTop(isfso.getInt(SFSKey.SERVICE_ID));
+        isfso.putUtfString(SFSKey.DATA, arr.toString());
+        getParentExtension().send(SFSCommand.CLIENT_REQUEST, isfso, user);
     }
 
     /**

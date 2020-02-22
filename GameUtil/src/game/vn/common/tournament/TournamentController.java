@@ -402,7 +402,7 @@ public class TournamentController extends GameController{
             //ghi log khi có phát sinh tiền trong game
             addInvoiceDetail(u, reasonId, moneyOfUserBefore.doubleValue(), moneyOfUser.doubleValue(), value.doubleValue(), tax.doubleValue(), arrayCardIds);
             //ghi log thue cho VIP
-            if (ServerConfig.getInstance().enableVip() && tax.signum()> 0 && getMoneyType() == MoneyContants.MONEY) {
+            if (tax.signum()> 0) {
                 UserTaxData userTaxData = new UserTaxData();
                 userTaxData.setGameId(reasonId + "");
                 userTaxData.setTax(tax.doubleValue());

@@ -828,7 +828,7 @@ public abstract class GameController implements Runnable {
             if (!isPlayerState(u)) {
                 return false;
             }
-            String idDBUser = getIdDBOfUser(u);
+            String userId = getIdDBOfUser(u);
             BigDecimal moneyOfUserBefore = getMoneyFromUser(u);
 
             if (value.signum() < 0) {
@@ -854,13 +854,13 @@ public abstract class GameController implements Runnable {
             if (minusMoney.compareTo(value) >= 0) {
                 UpdateMoneyResult rs;
                 if (getMoneyType() == MoneyContants.MONEY) {
-                    rs = Database.instance.callUpdateMoneyStackProcedure(idDBUser, value);
+                    rs = Database.instance.callUpdateMoneyStackProcedure(userId, value);
                 } else {
-                    rs = Database.instance.callUpdatePointStackProcedure(idDBUser, value);
+                    rs = Database.instance.callUpdatePointStackProcedure(userId, value);
                 }
 
                 if (moneyOfUserBefore.compareTo(rs.before) != 0) {
-                    this.game.getLogger().info(idDBUser+".Update money moneyOfUserBefore difference rs.before: value= "+value.doubleValue()+"moneyOfUserBefore="+moneyOfUserBefore+", before="+rs.before+", after="+rs.after);
+                    this.game.getLogger().info(userId+".Update money moneyOfUserBefore difference rs.before: value= "+value.doubleValue()+"moneyOfUserBefore="+moneyOfUserBefore+", before="+rs.before+", after="+rs.after);
                     sendUpdateMoneyLog(u, value, reasonId, tax, rs.before, rs.after, arrayCardIds);
                     //trường hợp lỗi cache và db khác nhau -> đồng bộ lại data và 
                     if (value.signum() < 0) {
@@ -883,21 +883,11 @@ public abstract class GameController implements Runnable {
             }
 
             BigDecimal moneyOfUser = getMoneyFromUser(u);
-            this.game.getLogger().info(idDBUser+".Update money: value= "+value.doubleValue()+" before="+moneyOfUserBefore+", after="+moneyOfUser);
+            this.game.getLogger().info(userId+".Update money: value= "+value.doubleValue()+" before="+moneyOfUserBefore+", after="+moneyOfUser);
             sendUpdateMoneyLog(u, value, reasonId, tax, moneyOfUserBefore, moneyOfUser, arrayCardIds);
             
-            //ghi log thue cho VIP
-            if (ServerConfig.getInstance().enableVip() && tax.signum()> 0 && getMoneyType() == MoneyContants.MONEY) {
-                UserTaxData userTaxData = new UserTaxData();
-                userTaxData.setGameId(reasonId + "");
-                userTaxData.setTax(tax.doubleValue());
-                userTaxData.setTime(new Date());
-                userTaxData.setUserId(getIdDBOfUser(u));
-                userTaxData.setServerId(ServerConfig.getInstance().getServerId() + "");
-
-                //gửi lên queue để vip chạy
-                executorLog.execute(new SendVipDataTask(userTaxData));
-                this.game.getLogger().info("send Vip data : " + userTaxData.getUserId() + " - money : " + value + " - tax : " + userTaxData.getTax());
+            if (tax.signum() > 0) {
+                Database.instance.insertTax(userId, getServiceId(), tax);
             }
             
             if (value.signum() > 0) {
@@ -3260,22 +3250,6 @@ public abstract class GameController implements Runnable {
      * @param point 
      */
     protected void sendRankingData(User user, double tax, int point) {
-        if (ServerConfig.getInstance().enableRanking() && getMoneyType() == MoneyContants.MONEY) {
-            executorLog.execute(new Runnable() {
-                @Override
-                public void run() {
-                    GameDataObj obj = new GameDataObj();
-                    obj.setBetmoney(getMoney().doubleValue());
-                    obj.setBonusPoint(point);
-                    obj.setService_id(getServiceId());
-                    obj.setTax(tax);
-                    obj.setWinUserid(getIdDBOfUser(user));
-                    obj.setWinUsername(getUserName(user));
-                    obj.setStartTime(startTime);
-                    QueueServiceVip.getInstance().sendRankingData(obj);
-                }
-            });
-        }
     }
 
     /**

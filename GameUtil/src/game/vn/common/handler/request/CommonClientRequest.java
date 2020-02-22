@@ -400,14 +400,6 @@ public class CommonClientRequest extends BaseClientRequestHandler {
             String userId =  Utils.getIdDBOfUser(user);
             Locale localeOfUser = Utils.getUserLocale(user);
             
-            //loại tiền user chọn chơi: tiền thiệt va tiền ảo
-            int moneyTypeOfUser= Utils.getMoneyTypeOfUser(user);
-            if(moneyTypeOfUser==MoneyContants.MONEY && ServerConfig.getInstance().isCloseRealMoney()){
-                String infor=GameLanguage.getMessage(GameLanguage.NOT_EXIST_MONEY_BOARD, localeOfUser);
-                getApi().kickUser(user, null, infor, 1);
-                return null;
-            }
-            
             UserState userState = HazelcastUtil.getUserState(userId);
             if(userState == null){
                 String infor=GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, localeOfUser);
@@ -467,7 +459,8 @@ public class CommonClientRequest extends BaseClientRequestHandler {
             
             //xét tiền cho user chổ này
             double money;
-            if (moneyTypeOfUser == MoneyContants.MONEY) {
+            int moneyType = Utils.getMoneyTypeOfUser(user);
+            if (moneyType  == MoneyContants.MONEY) {
                 money = userState.getMoneyStack();
                 if (money < minBetBoard && Database.instance.getUserMoney(userId) >= minBetBoard) {
                     money = minBetBoard;
@@ -497,7 +490,7 @@ public class CommonClientRequest extends BaseClientRequestHandler {
                 String infor = GameLanguage.getMessage(GameLanguage.JOIN_ROOM_ERROR, Utils.getUserLocale(user));
                 getApi().kickUser(user, null, infor, 1);
             } else {
-                return Utils.createBoardGame(userState.getBetBoard(), serviceId, getParentExtension().getParentZone(), moneyTypeOfUser, mode, isTournament);
+                return Utils.createBoardGame(userState.getBetBoard(), serviceId, getParentExtension().getParentZone(), moneyType , mode, isTournament);
             }
         } catch (Exception e) {
             this.getLogger().error("userJoinRoom error: ", e);

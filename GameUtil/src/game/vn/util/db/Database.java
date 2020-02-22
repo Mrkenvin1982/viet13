@@ -5,6 +5,8 @@
  */
 package game.vn.util.db;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.smartfoxserver.v2.db.IDBManager;
 import game.vn.common.constant.MoneyContants;
 import game.vn.common.lib.api.BotAdvantage;
@@ -2357,5 +2359,43 @@ public class Database {
         } catch (Exception e) {
             LOGGER.error("", e);
         }
+    }
+
+    public void insertTax(String userId, int serviceId, BigDecimal tax) {
+        try (Connection conn = dbManager.getConnection()) {
+            String sql = "INSERT INTO sfs_user_tax (user_id, service_id, tax) VALUES (?, ?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, userId);
+                ps.setInt(2, serviceId);
+                ps.setBigDecimal(3, tax);
+                ps.setBigDecimal(4, tax);
+                ps.execute();
+            }
+        } catch (Exception e) {
+            LOGGER.error("", e);
+        }
+    }
+    
+    public JsonArray getTop(int serviceId) {
+        JsonArray arr = new JsonArray();
+        try (Connection conn = dbManager.getConnection()) {
+            String sql = "CALL `sfs_get_top`(?)";
+            try (CallableStatement call = conn.prepareCall(sql)) {
+                call.setInt(1, serviceId);
+                try (ResultSet rs = call.executeQuery()) {
+                    int order = 1;
+                    while (rs.next()) {
+                        JsonObject json = new JsonObject();
+                        json.addProperty("order", order++);
+                        json.addProperty("userId", rs.getString("user_id"));
+                        json.addProperty("tax", rs.getBigDecimal("tax"));
+                        arr.add(json);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("", e);
+        }
+        return arr;
     }
 }

@@ -35,16 +35,6 @@ public class JoinRoomHandler extends BaseServerEventHandler {
         Room room = (Room) isfse.getParameter(SFSEventParam.ROOM);
         try {
 //            trace(" id user join: " + user.getName() + ": " + user.getId());
-            int roomType = room.getVariable(RoomInforPropertiesKey.MONEY_TYPE).getIntValue();
-            //nếu đóng game tiền thật thì không cho join vào lobby real
-            if(roomType == MoneyContants.MONEY && ServerConfig.getInstance().isCloseRealMoney()){
-                if (room.isGame()) {
-                    this.getApi().kickUser(user, null, "",1);
-                }else{
-                    this.getApi().leaveRoom(user, room);
-                }
-                return;
-            }
             if (room.isGame()) {
                 if (user.isPlayer()) {
                     processJoinGame(room, user);

@@ -25,7 +25,6 @@ public class ServerConfig extends PropertyConfigurator {
     private static final String MERCHANT_ID = "server.merchant.id";
 
     private static final String IS_CLOSE_REAL_MONEY = "server.isCloseRealMoney";
-    private static final String IS_SATOSHI_GAME = "game.isSatoshiGame";
     private static final String CLIENT_LITES = "game.clientLites";
     private static final String ENABLE_VIP = "game.enableVip";
     private static final String ENABLE_RANKING = "game.enableRanking";
@@ -275,15 +274,6 @@ public class ServerConfig extends PropertyConfigurator {
 
     public boolean enableRanking() {
         return getBooleanAttribute(ENABLE_RANKING);
-    }
-
-    /**
-     * Đóng mở game chơi bitcoin
-     *
-     * @return
-     */
-    public boolean isSatoshiGame() {
-        return this.getBooleanAttribute(IS_SATOSHI_GAME);
     }
 
     public List<Integer> getListShuffleGame() {

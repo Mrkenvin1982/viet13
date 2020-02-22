@@ -575,9 +575,6 @@ public class Utils {
      * @return 
      */
     private static double roundDown2Decimal(double value){
-        if(ServerConfig.getInstance().isSatoshiGame()){
-            return getRound(value);
-        }
         //chuyển sang kiểu long x100 để làm tròn xuống
         long valueRound=(long)(value*100);
         //tính lại kiểu double
@@ -732,9 +729,6 @@ public class Utils {
     }
     
     public static BigDecimal getRoundBigDecimal(BigDecimal value){
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            return value.setScale(0, RoundingMode.HALF_UP);
-        }
         return value.setScale(DECIMAL, RoundingMode.HALF_UP);
     }
     
@@ -752,9 +746,6 @@ public class Utils {
         long money2 = Math.round(value2 * 100);
 
         double result = (double) (money1 + money2) / 100;
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            result = getRound(result);
-        }
         return result;
     }
     
@@ -763,9 +754,6 @@ public class Utils {
         long money2 = Math.round(value2 * 100);
 
         double result = (double) (money1 - money2) / 100;
-        if (ServerConfig.getInstance().isSatoshiGame()) {
-            result = getRound(result);
-        }
         return result;
     }
     
@@ -788,8 +776,7 @@ public class Utils {
     }
     
     public static BigDecimal divide(BigDecimal value1, BigDecimal value2) {
-        int scale = ServerConfig.getInstance().isSatoshiGame() ? 0 : DECIMAL;
-        BigDecimal result = value1.divide(value2, scale, RoundingMode.HALF_UP);
+        BigDecimal result = value1.divide(value2, DECIMAL, RoundingMode.HALF_UP);
         return result;
     }
     

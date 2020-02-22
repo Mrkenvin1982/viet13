@@ -1581,32 +1581,8 @@ public abstract class GameController implements Runnable {
         BigDecimal[] result = new BigDecimal[2];
         result[TAX] = BigDecimal.ZERO;
         result[MONEY] = BigDecimal.ZERO;
-        if(ServerConfig.getInstance().isSatoshiGame()){
-            result = calculatorMinusTaxRound(money.doubleValue(), taxPercent);
-        }else{
-            result = calculatorMinusTax(money, taxPercent);
-        }
+        result = calculatorMinusTax(money, taxPercent);
         sumTax = Utils.add(sumTax, result[TAX]);
-        return result;
-    }
-    
-    /**
-     * Tính thuế theo kiểu làm tròn xuống ( kiểu Long)
-     * @param moneyInput
-     * @param taxPercent
-     * @return 
-     */
-    private BigDecimal[] calculatorMinusTaxRound(double moneyInput, int taxPercent) {
-        BigDecimal[] result = new BigDecimal[2];
-        result[TAX] = BigDecimal.ZERO;
-        result[MONEY] = BigDecimal.ZERO;
-        
-        long money = (long) moneyInput;
-        long tax = (money * taxPercent) / 100;
-        money = money - tax;
-
-        result[MONEY] = new BigDecimal(String.valueOf(money));
-        result[TAX] =  new BigDecimal(String.valueOf(tax));
         return result;
     }
     

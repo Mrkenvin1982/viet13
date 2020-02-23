@@ -2388,6 +2388,7 @@ public class Database {
                         JsonObject json = new JsonObject();
                         json.addProperty("order", order++);
                         json.addProperty("userId", rs.getString("user_id"));
+                        json.addProperty("username", rs.getString("username"));
                         json.addProperty("tax", rs.getBigDecimal("tax"));
                         arr.add(json);
                     }

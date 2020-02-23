@@ -60,7 +60,7 @@ public final class SFSClient implements IEventListener {
     private String userId;
     private final String password = "t12345";
     private final String host = "127.0.0.1";
-//    private final String host = "34.218.225.34";
+//    private final String host = "vietthirteen.xyz";
     private final int port = 9933;
     private final String zone = "Z88Zone";
     private String name;

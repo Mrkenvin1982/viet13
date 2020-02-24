@@ -285,8 +285,8 @@ public final class SFSClient implements IEventListener {
     
     private void getTop() {
         SFSObject sfsObj = new SFSObject();
-        sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.PLAY_TAIXIU);
-        sfsObj.putByte(SFSKey.COMMAND, (byte)7);
+        sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.RANKING_GET_LEADER_BOARD_INFO);
+        sfsObj.putInt(SFSKey.SERVICE_ID, 2);
         sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj));
     }
     

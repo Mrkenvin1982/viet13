@@ -489,7 +489,7 @@ public abstract class GameController implements Runnable {
             }
             checkUserLostConnect();
             isEnoughPlayersToStart.set(checkPlayersToStartAndCountDown());
-            sendLogGame();
+//            sendLogGame();
             initStartGame();
             if(getPlayersList().size() <2){
                 checkUserAutoLeave();

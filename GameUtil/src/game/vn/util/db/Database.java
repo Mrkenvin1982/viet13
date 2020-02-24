@@ -2368,7 +2368,6 @@ public class Database {
                 ps.setString(1, userId);
                 ps.setInt(2, serviceId);
                 ps.setBigDecimal(3, tax);
-                ps.setBigDecimal(4, tax);
                 ps.execute();
             }
         } catch (Exception e) {

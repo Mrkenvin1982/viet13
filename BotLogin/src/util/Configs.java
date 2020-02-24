@@ -73,11 +73,11 @@ public class Configs extends PropertyConfigurator {
     }
 
     public String getLoginHost() {
-        return getStringAttribute("login.host", "game.devcas.club");
+        return getStringAttribute("login.host", "vietthirteen.xyz");
     }
 
     public int getLoginPort() {
-        return getIntAttribute("login.port", 9940);
+        return getIntAttribute("login.port", 9933);
     }
 
     public String getLoginZone() {

@@ -5,9 +5,7 @@
  */
 package sfs;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.smartfoxserver.v2.entities.data.ISFSArray;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
@@ -22,14 +20,12 @@ import game.command.SFSCommand;
 import game.key.SFSKey;
 import game.vn.common.lib.taixiu.TaiXiuCommand;
 import game.vn.common.lib.taixiu.TaiXiuGameInfo;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import service.Service;
@@ -45,11 +41,9 @@ import sfs2x.client.requests.JoinRoomRequest;
 import sfs2x.client.requests.LeaveRoomRequest;
 import sfs2x.client.requests.LoginRequest;
 import sfs2x.client.util.ConfigData;
-import sfs2x.client.util.PasswordUtil;
 import util.Configs;
 import util.DateUtil;
 import util.GsonUtil;
-import util.HTTPUtil;
 import util.Utils;
 
 /**
@@ -61,12 +55,7 @@ public class SFSBot implements IEventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(SFSBot.class);
     private static final long ONE_MINUTE = 60000;
 
-    private final String email;
-    private final String password;
-    private String token;
-    private String userId;
-    private String clientId;
-    private String gameToken;
+    private final String userId;
     private double betMoney;
     private byte moneyType;
     private byte serviceId;
@@ -77,20 +66,17 @@ public class SFSBot implements IEventListener {
     private final SmartFox sfs;
     private final ConfigData cfg;
     private Object[] bets;
-    private Room room;
+    private Room roomLobby;
+    private Room roomGame;
     private String roomName;
-    private SFSBotGame sfsGame;
-    private final SFSBot sfsBot;
     private final Timer timer = new Timer();
     private final ExtensionRequest pingRequest;
     private boolean isRunning = true;
     private long timeBetTaiXiu = 0;
     private BotConfig config;
 
-    public SFSBot(String email, String password) {
-        this.email = email;
-        this.password = password;
-        this.sfsBot = this;
+    public SFSBot(String userId) {
+        this.userId = userId;
 
         sfs = new SmartFox();
         sfs.addEventListener(SFSEvent.CONNECTION, this);
@@ -115,10 +101,10 @@ public class SFSBot implements IEventListener {
                             userType = sfs.getMySelf().getVariable("userType").getIntValue();
                             serviceId = Service.getServiceId(userType);
                             moneyType = Service.getMoneyType(userType);
-                            config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
+//                            config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
                             setMoneyType();
-                            changeUsername(true);
-                            updateSchedule();
+//                            changeUsername();
+//                            updateSchedule();
                             new Timer().schedule(new TimerTask() {
                                 @Override
                                 public void run() {
@@ -148,46 +134,13 @@ public class SFSBot implements IEventListener {
 
                         case SFSAction.LOBBY_LIST_COUNTER:
                             bets = sfsObj.getDoubleArray(SFSKey.LIST_BET_BOARD).toArray();
-                            List<Double> betCheck = new ArrayList<>();
-                            for (Object bet : bets) {
-                                double betMoney = (double) bet;
-                                if (config.getListBet().contains(betMoney)) {
-                                    betCheck.add(betMoney);
-                                }
-                            }
-                            if (betMoney == 0 || !betCheck.contains(betMoney)) {
-                                betMoney = betCheck.get(Utils.nextInt(betCheck.size()));
-                            }
-                            LOGGER.info(email + " buy stack from lobby " + betMoney);
+                            betMoney = (double)bets[Utils.nextInt(bets.length)];
+                            LOGGER.info(userId + " buy stack from lobby " + betMoney);
                             buyStack(betMoney);
                             break;
 
-                        case SFSAction.FIND_BOARD:
-                            String boards = sfsObj.getUtfString(SFSKey.BOARDS);
-                            JsonArray arr = new JsonParser().parse(boards).getAsJsonArray();
-                            JsonObject json = arr.get(0).getAsJsonObject();
-                            int port = json.get("port").getAsInt();
-                            String ip = Configs.getInstance().getGameHost();
-                            if (ip == null || ip.isEmpty()) {
-                                ip = json.get("ip").getAsString();
-                            }
-                            String zone = json.get("zone").getAsString();
-                            betMoney = json.get("betMoney").getAsDouble();
-                            if (sfsGame == null) {
-                                sfsGame = new SFSBotGame(sfsBot, gameToken, ip, port, zone, betMoney, moneyType, userType, roomName, userId, serviceId);
-                            } else {
-                                sfsGame.setBetMoney(betMoney);
-                                sfsGame.setRoomName(roomName);
-                                sfsGame.setToken(gameToken);
-                                sfsGame.setServiceId(serviceId);
-                                sfsGame.setUserType(userType);
-                                sfsGame.setMoneyType(moneyType);
-                            }
-                            sfsGame.connect();
-                            break;
-
                         case SFSAction.BUY_STACK_IN_LOBBY:
-                            LOGGER.info(email + " error buy stack: " + sfsObj.getDump());
+                            LOGGER.info(userId + " error buy stack: " + sfsObj.getDump());
                             roomName = null;
                             leaveLobby();
                             break;
@@ -221,11 +174,11 @@ public class SFSBot implements IEventListener {
                                         if (Configs.getInstance().getTaiXiuBetDelayFrom() > 0) {
                                             long delay = Utils.nextInt(Configs.getInstance().getTaiXiuBetDelayFrom(), Configs.getInstance().getTaiXiuBetDelayTo());
                                             timeBetTaiXiu = System.currentTimeMillis() + delay * 60000;
-                                            LOGGER.info(email + " next bet tx in " + delay + " minutes");
+                                            LOGGER.info(userId + " next bet tx in " + delay + " minutes");
                                         }
                                     } else {
                                         if (Utils.nextInt(50) <= 1) {
-                                            changeUsername(false);
+                                            changeUsername();
                                         }
                                     }
                                     break;
@@ -233,7 +186,7 @@ public class SFSBot implements IEventListener {
                             break;
                     }
                 } catch (Exception ex) {
-                    LOGGER.error(email + " " + userId, ex);
+                    LOGGER.error(userId + " " + userId, ex);
                 }
             }
 
@@ -247,6 +200,8 @@ public class SFSBot implements IEventListener {
         SFSObject sfsObj = new SFSObject();
         sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.PING);
         pingRequest = new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj);
+        
+        start();
     }
 
     @Override
@@ -254,21 +209,19 @@ public class SFSBot implements IEventListener {
         switch (e.getType()) {
             case SFSEvent.CONNECTION:
                 boolean success = (Boolean) e.getArguments().get("success");
-                LOGGER.info(email + " connect " + success);
+                LOGGER.info(userId + " connect " + success);
                 if (success) {
                     login();
                 }
                 break;
 
             case SFSEvent.CONNECTION_LOST:
-                LOGGER.info(email + " lost connection");
+                LOGGER.info(userId + " lost connection");
                 timer.cancel();
                 break;
 
             case SFSEvent.LOGIN:
-                LOGGER.info(email + " login success");
-                SFSObject sfsObj = (SFSObject) e.getArguments().get("data");
-                gameToken = sfsObj.getUtfString(SFSKey.TOKEN_LOGIN);
+                LOGGER.info(userId + " login success");
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
@@ -280,7 +233,7 @@ public class SFSBot implements IEventListener {
 
             case SFSEvent.LOGIN_ERROR:
                 String error = e.getArguments().get("errorMessage").toString();
-                LOGGER.error(email + " login error:  " + error);
+                LOGGER.error(userId + " login error:  " + error);
                 sfs.disconnect();
                 break;
 
@@ -289,21 +242,25 @@ public class SFSBot implements IEventListener {
                 break;
 
             case SFSEvent.ROOM_JOIN:
-                room = (Room) e.getArguments().get("room");
-                LOGGER.info(email + " join room: " + room.getName());
-                if (isRunning) {
-                    switch (userType) {
-                        case Constant.USER_TYPE_BOT_BC_CAI:
-                        case Constant.USER_TYPE_BOT_XD_CAI:
-                        case Constant.USER_TYPE_BOT_MB_CAI:
-                        case Constant.USER_TYPE_BOT_TL_CAI:
-                        case Constant.POINT_TYPE_BOT_BC_CAI:
-                        case Constant.POINT_TYPE_BOT_XD_CAI:
-                        case Constant.POINT_TYPE_BOT_MB_CAI:
-                        case Constant.POINT_TYPE_BOT_TL_CAI:
-                            Utils.sleep(500);
-                            getListBetMoney();
-                            break;
+                Room room = (Room) e.getArguments().get("room");
+                LOGGER.info(userId + " join room: " + room.getName());
+                if (room.isGame()) {
+                    roomGame = room;
+                } else {
+                    roomLobby = room;
+                    if (isRunning) {
+                        switch (userType) {
+                            case Constant.USER_TYPE_BOT_BC_CAI:
+                            case Constant.USER_TYPE_BOT_XD_CAI:
+                            case Constant.USER_TYPE_BOT_MB_CAI:
+                            case Constant.USER_TYPE_BOT_TL_CAI:
+                            case Constant.POINT_TYPE_BOT_BC_CAI:
+                            case Constant.POINT_TYPE_BOT_XD_CAI:
+                            case Constant.POINT_TYPE_BOT_MB_CAI:
+                            case Constant.POINT_TYPE_BOT_TL_CAI:
+                                getListBetMoney();
+                                break;
+                        }
                     }
                 }
                 break;
@@ -311,50 +268,14 @@ public class SFSBot implements IEventListener {
             case SFSEvent.USER_EXIT_ROOM:
                 User user = (User) e.getArguments().get("user");
                 if (user.isItMe()) {
-                    LOGGER.info(email + " leave room " + room.getName());
-                    Utils.sleepRandom(2000, 3000);
-                    Utils.sleepRandom(2000, 3000);
-                    changeUsername(false);
-                    room = null;
-                    if (serviceId == Service.TAI_XIU) {
-                        if (userType == Constant.USER_TYPE_BOT_TX || userType == Constant.POINT_TYPE_BOT_TX) {
-                            getTaiXiuInfo();
-                        }
-                    } else {
-                        requestInfoAllGame();
-                    }
+                    
                 }
                 break;
 
             case SFSEvent.USER_VARIABLES_UPDATE:
                 ArrayList<String> vars = (ArrayList) e.getArguments().get("changedVars");
                 if (vars.contains("userType")) {
-                    int newUserType = sfs.getMySelf().getVariable("userType").getIntValue();
-                    if (newUserType != userType && userType != 0) {
-                        int oldServiceId = serviceId;
-                        userType = newUserType;
-                        serviceId = Service.getServiceId(userType);
-                        config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
-                        if (isInGame()) {
-                            disconnectGame();
-                        } else {
-                            if (oldServiceId == Service.TAI_XIU) {
-                                quitTaiXiu();
-                                if (serviceId == Service.TAI_XIU) {
-                                    if (userType == Constant.USER_TYPE_BOT_TX || userType == Constant.POINT_TYPE_BOT_TX) {
-                                        getTaiXiuInfo();
-                                    }
-                                } else {
-                                    requestInfoAllGame();
-                                }
-                            } else {    // đang là bot game bài
-                                if (room != null) {
-                                    leaveLobby();
-                                }
-                            }
-                        }
-                        LOGGER.info(email + " user type changed: " + userType);
-                    }
+                    
                 }
                 break;
         }
@@ -372,20 +293,12 @@ public class SFSBot implements IEventListener {
         sfs.disconnect();
     }
     
-    public void disconnectGame() {
-        sfsGame.disconnect();
-    }
-    
-    public boolean isOwner() {
-        return sfsGame != null && sfsGame.isOwner();
-    }
-
     public boolean isInGame() {
-        return sfsGame != null && sfsGame.isConnected();
+        return roomGame != null;
     }
     
     public boolean isPlaying(){
-        return sfsGame.isPlaying();
+        return true;
     }
 
     public String getRoomName() {
@@ -409,7 +322,7 @@ public class SFSBot implements IEventListener {
     }
 
     public String getEmail() {
-        return email;
+        return userId;
     }
 
     public int getUserType() {
@@ -422,15 +335,14 @@ public class SFSBot implements IEventListener {
         json.addProperty("channel", "2|win888xxx|1.0.6");
         json.addProperty("app_version", "1.0.3");
         json.addProperty("bundle_id", "");
-        json.addProperty("udid", "botbc-udid-" + email);
+        json.addProperty("udid", "botbc-udid-" + userId);
         json.addProperty("sessionId", "");
-        json.addProperty("email", email);
+        json.addProperty("email", userId);
         json.addProperty("authorizeType", 1);
 
         SFSObject params = new SFSObject();
-        if (token != null) {
-        params.putUtfString("login_token", token);
-        }
+        params.putByte("login_type", (byte)2);
+        params.putUtfString("login_token", userId);
         params.putUtfString("client_info", json.toString());
         LoginRequest rq = new LoginRequest("", "", Configs.getInstance().getLoginZone(), params);
         sfs.send(rq);
@@ -445,24 +357,18 @@ public class SFSBot implements IEventListener {
     public void getListBetMoney() {
         SFSObject sfsObj = new SFSObject();
         sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.LOBBY_LIST_COUNTER);
-        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, room));
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, roomLobby));
     }
 
     public void buyStack(double betMoney) {
-        int n = config.getMinBuyIn() + Utils.nextInt(config.getMaxBuyIn() - config.getMinBuyIn());
-        String key = moneyType == Constant.MONEY ? "moneyUser" : "pointUser";
-        double money = sfs.getMySelf().getVariable(key).getDoubleValue();
+        int n = 10;
         double stackMoney = (n * betMoney) + Utils.nextInt((int)betMoney);
-        if (stackMoney > money) {
-            stackMoney = Math.min(config.getMinBuyIn() * betMoney, money);
-        }
-
         SFSObject sfsObj = new SFSObject();
         sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.BUY_STACK_IN_LOBBY);
         sfsObj.putDouble(SFSKey.BET_BOARD, betMoney);
         sfsObj.putDouble(SFSKey.MONEY_STACK, stackMoney);
         sfsObj.putBool(SFSKey.IS_OWNER, true);
-        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, room));
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj, roomLobby));
     }
 
     private void setMoneyType() {
@@ -474,59 +380,15 @@ public class SFSBot implements IEventListener {
 
     public boolean start() {
         try {
-            if (Configs.getInstance().isLoginByToken()) {
-            String response = registerClient();
-            JsonObject json = Utils.parse(response);
-            if (json.get("code").getAsInt() != 7000) {
-                LOGGER.info("registerClient fail: " + response);
-                return false;
-            }
-
-            clientId = json.get("data").getAsJsonObject().get("clientId").getAsString();
-            response = authenticate();
-            json = Utils.parse(response);
-            if (json.get("code").getAsInt() != 2000) {
-                LOGGER.info("authenticate fail: " + email + " - " + response);
-                return false;
-            }
-
-            json = json.get("data").getAsJsonObject();
-            token = json.get("accessToken").getAsString();
-            userId = json.get("accountId").getAsString();
-            }
             connect();
 
         } catch (Exception e) {
-            LOGGER.error("error starting bot " + email, e);
+            LOGGER.error("error starting bot " + userId, e);
             return false;
         }
         return true;
     }
 
-    private String registerClient() throws IOException {
-        String idFa = UUID.randomUUID().toString();
-        JsonObject json = new JsonObject();
-        json.addProperty("userAgent", "GT7690");
-        json.addProperty("platform", "web");
-        json.addProperty("deviceId", "Samsung galaxy S8+");
-        json.addProperty("lang", "vn");
-        json.addProperty("version", "1.0");
-        json.addProperty("channel", "2|win888bot|1.0.6");
-        json.addProperty("idFa", idFa);
-        json.addProperty("gaId", PasswordUtil.MD5Password(idFa));
-        String response = HTTPUtil.request(Configs.getInstance().getVerifyUrl() + "RegisterClient", json.toString());
-        return response;
-    }
-
-    private String authenticate() throws IOException {
-        JsonObject json = new JsonObject();
-        json.addProperty("email", email);
-        json.addProperty("password", PasswordUtil.MD5Password(password));
-        json.addProperty("clientId", clientId);
-        String response = HTTPUtil.request(Configs.getInstance().getVerifyUrl() + "Authorize", json.toString());
-        return response;
-    }
-    
     private void joinLobby() {
         sfs.send(new JoinRoomRequest(Service.getLobbyName(serviceId, moneyType)));
     }
@@ -566,22 +428,16 @@ public class SFSBot implements IEventListener {
         sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj));
     }
 
-    private void changeUsername(boolean sendAPI) {
+    private void changeUsername() {
         try {
             List<String> names = Configs.getInstance().getListName();
             String name = names.get(Utils.nextInt(names.size()));
-            if (sendAPI) {
-                JsonObject json = new JsonObject();
-                json.addProperty("clientId", clientId);
-                json.addProperty("displayName", name);
-                HTTPUtil.request(Configs.getInstance().getVerifyUrl() + "UpdateProfile", json.toString(), token);
-            }
             SFSObject sfsObj = new SFSObject();
             sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.UPDATE_PROFILE);
             sfsObj.putUtfString(SFSKey.DISPLAY_NAME, name);
             sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj));
         } catch (Exception e) {
-            LOGGER.error(email + " " + userId, e);
+            LOGGER.error(userId + " " + userId, e);
         }
 
     }
@@ -617,9 +473,9 @@ public class SFSBot implements IEventListener {
         if (Configs.getInstance().isStop()) {
             if (isInGame()) {
                 if (isPlaying()) {
-                    sfsGame.stop();
+                    
                 } else {
-                    disconnectGame();
+
                 }
             } else {
                 disconnect();
@@ -649,18 +505,18 @@ public class SFSBot implements IEventListener {
         }
 
         if (isRunning) {
-            LOGGER.info(email + " is on");
+            LOGGER.info(userId + " is on");
             if (isMaster()) {
                 betMoney = 0;
                 getListBetMoney();
             }
         } else {
-            LOGGER.info(email + " is off");
+            LOGGER.info(userId + " is off");
             if (isInGame()) {
                 if (isPlaying()) {
-                    sfsGame.stop();
+
                 } else {
-                    disconnectGame();
+
                 }
             }
         }
@@ -704,7 +560,7 @@ public class SFSBot implements IEventListener {
             }
 
         } catch (Exception e) {
-            LOGGER.error(email + " " + userId, e);
+            LOGGER.error(userId + " " + userId, e);
         }
 
         return false;
@@ -731,5 +587,9 @@ public class SFSBot implements IEventListener {
 
     public BotConfig getConfig() {
         return config;
+    }
+    
+    public static void main(String[] args) throws Exception {
+        new SFSBot("010907782672");
     }
 }

@@ -211,7 +211,7 @@ public class BotManager {
         JsonObject json = GsonUtil.parse(s).getAsJsonObject();
 
         String email = json.get("email").getAsString();
-        String password = json.get("password").getAsString();
+
         int amount;
         List<String> emails = null;
         if (email.isEmpty()) {
@@ -223,7 +223,7 @@ public class BotManager {
         
         for (int i = 0; i < amount; i++) {
             String botEmail = emails != null ? emails.get(i) : getEmail(email, i + 1);
-            SFSBot bot = new SFSBot(botEmail, password);
+            SFSBot bot = new SFSBot(botEmail);
             if (bot.start()) {
                 BOT.add(bot);
             }

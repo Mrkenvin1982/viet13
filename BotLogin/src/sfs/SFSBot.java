@@ -15,6 +15,7 @@ import db.Database;
 import domain.BotConfig;
 import domain.BotSchedule;
 import domain.BotScheduleTime;
+import game.command.MauBinhCommand;
 import game.command.SFSAction;
 import game.command.SFSCommand;
 import game.key.SFSKey;
@@ -23,7 +24,9 @@ import game.vn.common.lib.taixiu.TaiXiuGameInfo;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import org.slf4j.Logger;
@@ -41,9 +44,11 @@ import sfs2x.client.requests.JoinRoomRequest;
 import sfs2x.client.requests.LeaveRoomRequest;
 import sfs2x.client.requests.LoginRequest;
 import sfs2x.client.util.ConfigData;
+import util.AutoArrangementBotNew;
 import util.Configs;
 import util.DateUtil;
 import util.GsonUtil;
+import util.TldlBot;
 import util.Utils;
 
 /**
@@ -70,10 +75,18 @@ public class SFSBot implements IEventListener {
     private Room roomGame;
     private String roomName;
     private final Timer timer = new Timer();
+    private final Timer gameTimer = new Timer();
     private final ExtensionRequest pingRequest;
     private boolean isRunning = true;
+    private boolean isOwner = false;
+    private boolean isStartGame = false;
     private long timeBetTaiXiu = 0;
     private BotConfig config;
+    private final SFSObject pingObj = new SFSObject();
+    private byte[] myCards;
+    private byte[] movedCards;
+    private final Map<String, Byte> userSeats = new HashMap<>();
+    private final List<String> userIds = new ArrayList<>(); // list userId
 
     public SFSBot(String userId) {
         this.userId = userId;
@@ -95,101 +108,15 @@ public class SFSBot implements IEventListener {
                     LOGGER.info(sfsObj.getDump());
                 }
                 try {
-                    int action = sfsObj.containsKey(SFSKey.ACTION_INCORE) ? sfsObj.getInt(SFSKey.ACTION_INCORE) : sfsObj.getInt(SFSKey.ACTION_INGAME);
-                    switch (action) {
-                        case SFSAction.JOIN_ZONE_SUCCESS:
-                            userType = sfs.getMySelf().getVariable("userType").getIntValue();
-                            serviceId = Service.getServiceId(userType);
-                            moneyType = Service.getMoneyType(userType);
-//                            config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
-                            setMoneyType();
-//                            changeUsername();
-//                            updateSchedule();
-                            new Timer().schedule(new TimerTask() {
-                                @Override
-                                public void run() {
-                                    updateSchedule();
-                                }
-                            }, ONE_MINUTE, ONE_MINUTE);
-                            if (serviceId == Service.TAI_XIU) {
-                                if (userType == Constant.USER_TYPE_BOT_TX || userType == Constant.POINT_TYPE_BOT_TX) {
-                                    getTaiXiuInfo();
-                                }
-                            } else {
-                                requestInfoAllGame();
-                            }
-                            break;
-                            
-                        case SFSAction.REQUEST_INFOR_ALL_GAME:
-                            ISFSArray sfsArr = moneyType == Constant.MONEY ? sfsObj.getSFSArray("arrMoney") : sfsObj.getSFSArray("arrPoint");
-                            for (int i=0; i<sfsArr.size(); i++) {
-                                ISFSObject obj = sfsArr.getSFSObject(i);
-                                if (obj.getUtfString("name").equals(Service.getLobbyName(serviceId, moneyType))) {
-                                    minBuyStack = obj.getInt("minBuyStack");
-                                    minBuyStackOwner = obj.getInt("minBuyStackOwner");
-                                }
-                            }
-                            joinLobby();
-                            break;
-
-                        case SFSAction.LOBBY_LIST_COUNTER:
-                            bets = sfsObj.getDoubleArray(SFSKey.LIST_BET_BOARD).toArray();
-                            betMoney = (double)bets[Utils.nextInt(bets.length)];
-                            LOGGER.info(userId + " buy stack from lobby " + betMoney);
-                            buyStack(betMoney);
-                            break;
-
-                        case SFSAction.BUY_STACK_IN_LOBBY:
-                            LOGGER.info(userId + " error buy stack: " + sfsObj.getDump());
-                            roomName = null;
-                            leaveLobby();
-                            break;
-
-                        case SFSAction.PLAY_TAIXIU:
-                            byte cmd = sfsObj.getByte(SFSKey.COMMAND);
-                            switch (cmd) {
-                                case TaiXiuCommand.UPDATE_CURRENT_MATCH_INFO:
-                                    if (System.currentTimeMillis() < timeBetTaiXiu || !isRunning) {
-                                        break;
-                                    }
-                                    String data = sfsObj.getUtfString(SFSKey.DATA);
-                                    TaiXiuGameInfo info = GsonUtil.fromJson(data, TaiXiuGameInfo.class);
-                                    if (info.getTimeBetRemain() > 0) {  // lúc start ván
-                                        BotConfig config = Database.INSTANCE.getBotConfig(serviceId, moneyType); 
-                                        int botEach = Utils.nextInt(100);
-                                        if (botEach < config.getBotEachTurnTo()) {
-                                            int count = Utils.nextInt(config.getBotEachTurn()) + 1;   
-                                            Integer choice = Utils.nextInt(2);
-                                            long time = info.getTimeBetRemain();
-                                            for (int i=0; i<count; i++) {
-                                                long delay = Math.abs(Utils.nextLong()) % time;
-                                                time -= delay;
-                                                Utils.sleep(delay);
-                                                int j = Utils.nextInt(info.getBetMoneys().size() - 1);
-                                                double betMoney = info.getBetMoneys().get(j).doubleValue();
-                                                sendTaiXiuBetRequest(choice.byteValue(), betMoney);
-                                            }
-                                        }
-
-                                        if (Configs.getInstance().getTaiXiuBetDelayFrom() > 0) {
-                                            long delay = Utils.nextInt(Configs.getInstance().getTaiXiuBetDelayFrom(), Configs.getInstance().getTaiXiuBetDelayTo());
-                                            timeBetTaiXiu = System.currentTimeMillis() + delay * 60000;
-                                            LOGGER.info(userId + " next bet tx in " + delay + " minutes");
-                                        }
-                                    } else {
-                                        if (Utils.nextInt(50) <= 1) {
-                                            changeUsername();
-                                        }
-                                    }
-                                    break;
-                            }
-                            break;
+                    if (sfsObj.containsKey(SFSKey.ACTION_INCORE)) {
+                        processCoreAction(sfsObj);
+                    } else {
+                        processGameAction(sfsObj);
                     }
                 } catch (Exception ex) {
                     LOGGER.error(userId + " " + userId, ex);
                 }
             }
-
         });
 
         cfg = new ConfigData();
@@ -200,10 +127,345 @@ public class SFSBot implements IEventListener {
         SFSObject sfsObj = new SFSObject();
         sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.PING);
         pingRequest = new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj);
-        
-        start();
+        pingObj.putInt(SFSKey.ACTION_INGAME, SFSAction.CONTINUE_GAME);
     }
 
+    private void processCoreAction(SFSObject sfsObj) {
+        switch (sfsObj.getInt(SFSKey.ACTION_INCORE)) {
+            case SFSAction.JOIN_ZONE_SUCCESS:
+                userType = sfs.getMySelf().getVariable("userType").getIntValue();
+                serviceId = Service.getServiceId(userType);
+                moneyType = Service.getMoneyType(userType);
+//                config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
+                setMoneyType();
+//                changeUsername();
+//                updateSchedule();
+//                new Timer().schedule(new TimerTask() {
+//                    @Override
+//                    public void run() {
+//                        updateSchedule();
+//                    }
+//                }, ONE_MINUTE, ONE_MINUTE);
+                if (serviceId == Service.TAI_XIU) {
+                    if (userType == Constant.USER_TYPE_BOT_TX || userType == Constant.POINT_TYPE_BOT_TX) {
+                        getTaiXiuInfo();
+                    }
+                } else {
+                    requestInfoAllGame();
+                }
+                break;
+
+            case SFSAction.REQUEST_INFOR_ALL_GAME:
+                ISFSArray sfsArr = moneyType == Constant.MONEY ? sfsObj.getSFSArray("arrMoney") : sfsObj.getSFSArray("arrPoint");
+                for (int i = 0; i < sfsArr.size(); i++) {
+                    ISFSObject obj = sfsArr.getSFSObject(i);
+                    if (obj.getUtfString("name").equals(Service.getLobbyName(serviceId, moneyType))) {
+                        minBuyStack = obj.getInt("minBuyStack");
+                        minBuyStackOwner = obj.getInt("minBuyStackOwner");
+                    }
+                }
+                joinLobby();
+                break;
+
+            case SFSAction.LOBBY_LIST_COUNTER:
+                bets = sfsObj.getDoubleArray(SFSKey.LIST_BET_BOARD).toArray();
+                betMoney = (double) bets[Utils.nextInt(bets.length)];
+                LOGGER.info(userId + " buy stack from lobby " + betMoney);
+                buyStack(betMoney);
+                break;
+
+            case SFSAction.BUY_STACK_IN_LOBBY:
+                LOGGER.info(userId + " error buy stack: " + sfsObj.getDump());
+                roomName = null;
+                leaveLobby();
+                break;
+
+            case SFSAction.PLAY_TAIXIU:
+                byte cmd = sfsObj.getByte(SFSKey.COMMAND);
+                switch (cmd) {
+                    case TaiXiuCommand.UPDATE_CURRENT_MATCH_INFO:
+                        if (System.currentTimeMillis() < timeBetTaiXiu || !isRunning) {
+                            break;
+                        }
+                        String data = sfsObj.getUtfString(SFSKey.DATA);
+                        TaiXiuGameInfo info = GsonUtil.fromJson(data, TaiXiuGameInfo.class);
+                        if (info.getTimeBetRemain() > 0) {  // lúc start ván
+                            BotConfig config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
+                            int botEach = Utils.nextInt(100);
+                            if (botEach < config.getBotEachTurnTo()) {
+                                int count = Utils.nextInt(config.getBotEachTurn()) + 1;
+                                Integer choice = Utils.nextInt(2);
+                                long time = info.getTimeBetRemain();
+                                for (int i = 0; i < count; i++) {
+                                    long delay = Math.abs(Utils.nextLong()) % time;
+                                    time -= delay;
+                                    Utils.sleep(delay);
+                                    int j = Utils.nextInt(info.getBetMoneys().size() - 1);
+                                    double betMoney = info.getBetMoneys().get(j).doubleValue();
+                                    sendTaiXiuBetRequest(choice.byteValue(), betMoney);
+                                }
+                            }
+
+                            if (Configs.getInstance().getTaiXiuBetDelayFrom() > 0) {
+                                long delay = Utils.nextInt(Configs.getInstance().getTaiXiuBetDelayFrom(), Configs.getInstance().getTaiXiuBetDelayTo());
+                                timeBetTaiXiu = System.currentTimeMillis() + delay * 60000;
+                                LOGGER.info(userId + " next bet tx in " + delay + " minutes");
+                            }
+                        } else {
+                            if (Utils.nextInt(50) <= 1) {
+                                changeUsername();
+                            }
+                        }
+                        break;
+                }
+                break;
+        }
+    }
+
+    private void processGameAction(SFSObject sfsObj) {
+        switch (sfsObj.getInt(SFSKey.ACTION_INGAME)) {
+            case SFSAction.START_GAME:
+                startGame(sfsObj);
+                break;
+            case SFSAction.ADD_PLAYER:
+                String joinId = sfsObj.getUtfString("idDBUser");
+                byte seat = sfsObj.getByte(SFSKey.SEAT_USER);
+                userSeats.put(joinId, seat);
+                userIds.add(joinId);
+                if (Utils.nextBoolean()) {
+                    Utils.sleepRandom(3000, 4000);
+                    sendQuickPlay();
+                }
+                break;
+            case SFSAction.JOIN_BOARD:
+                ISFSArray arr = sfsObj.getSFSArray("array");
+                for (int i = 0; i < arr.size(); i++) {
+                    ISFSObject userObj = arr.getSFSObject(i);
+                    String id = userObj.getUtfString("idDBUser");
+                    userIds.add(id);
+                    userSeats.put(id, userObj.getByte(SFSKey.SEAT_USER));
+                }
+                if (Utils.nextBoolean()) {
+                    Utils.sleepRandom(2000);
+                    sendQuickPlay();
+                }
+                break;
+            case SFSAction.LEAVE_GAME:
+                break;
+            case SFSAction.STOP_GAME:
+                sendQuickPlay();
+                break;
+            case SFSAction.MOVE:
+                processMove(sfsObj);
+                break;
+            case SFSAction.SKIP:
+                processSkip(sfsObj);
+                break;
+            case 46:
+                processUserCards(sfsObj);
+                break;
+        }
+    }
+    
+    private void startGame(SFSObject sfsObj) {
+        isStartGame = true;
+        switch (serviceId) {
+//            case Service.BAI_CAO:
+//                startGameBaiCao(sfsObj);
+//                break;
+//            case Service.BLACKJACK:
+//                startGameBlackJack(sfsObj);
+//                break;
+            case Service.MAUBINH:
+                startGameMauBinh(sfsObj);
+                break;
+            case Service.TIENLEN:
+                startGameTienLen(sfsObj);
+                break;
+        }
+    }
+    
+    private void startGameTienLen(SFSObject sfsObj) {
+        myCards = convertShortArray(new ArrayList(sfsObj.getShortArray(SFSKey.ARRAY_INFOR_CARD)));
+        String uId = sfsObj.getUtfString("ui");
+        if (uId.equals(sfs.getMySelf().getName())) {
+            Utils.sleep(1500);
+            movedCards = null;
+            getUserCards();
+        }
+    }
+    
+    private void getUserCards() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, 46);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, roomGame));
+    }
+    
+    private void startGameMauBinh(SFSObject sfsObj) {
+//        byte time = sfsObj.getByte(MauBinhCommand.LIMIT_TIME);
+        myCards = convertShortArray(new ArrayList(sfsObj.getShortArray(SFSKey.ARRAY_INFOR_CARD)));
+        byte[] arrangedCards = AutoArrangementBotNew.getBestSolution(myCards);
+        Utils.sleepRandom(3000, 40000);
+        if (arrangedCards != null) {
+            SFSObject obj = new SFSObject();
+            obj.putInt(SFSKey.ACTION_INGAME, MauBinhCommand.FINISH);
+            obj.putShortArray(SFSKey.ARRAY_INFOR_CARD, convertByteArray(arrangedCards));
+            sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, obj, roomGame));
+        } else {
+            SFSObject obj = new SFSObject();
+            obj.putInt(SFSKey.ACTION_INGAME, MauBinhCommand.AUTO_ARRANGE);
+            sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, obj, roomGame));
+        }
+    }
+    
+    private void processMove(ISFSObject sfsObj) {
+        switch (serviceId) {
+            case Service.TIENLEN:
+                processTienLenMove(sfsObj);
+                break;
+        }
+    }
+    
+    private void processTienLenMove(ISFSObject sfsObj) {
+        String uId = sfsObj.getUtfString("uicurr");
+        String userIdMove = sfsObj.getUtfString("ui");
+        movedCards = convertShortArray(new ArrayList(sfsObj.getShortArray(SFSKey.ARRAY_INFOR_CARD)));
+        boolean isChatHeo = sfsObj.getBool("sIsBiChat");
+        if (uId.equals(userId)) {
+            getUserCards();
+        }
+    }
+    
+    private void processSkip(ISFSObject sfsObj) {
+        switch (serviceId) {
+            case Service.TIENLEN:
+                processTienLenSkip(sfsObj);
+                break;
+        }
+    }
+    
+    private void processTienLenSkip(ISFSObject sfsObj) {
+        String uId = sfsObj.getUtfString("uicurr");
+        if (uId.equals(userId)) {
+            boolean isSkipAll = sfsObj.getBool("sClCrd");
+            if (isSkipAll) {
+                movedCards = null;
+            }
+            getUserCards();
+        }
+    }
+    
+    private void processUserCards(ISFSObject sfsObj) {
+        if (Configs.getInstance().isLogEnable()) {
+            LOGGER.info("cheat: " + sfsObj.getDump());
+        }
+        ISFSArray arr = sfsObj.getSFSArray("sfsArray");
+        byte[] op1Cards = null;
+        byte[] op2Cards = null;
+        byte[] op3Cards = null;
+        myCards = null;
+        boolean op1inRound = false;
+        boolean op2inRound = false;
+        boolean op3inRound = false;
+        for (int i = 0; i < arr.size(); i++) {
+            ISFSObject userObj = arr.getSFSObject(i);
+            String uId = userObj.getUtfString("userId");
+            byte[] uCards = convertShortArray(new ArrayList(userObj.getShortArray("arrCards")));
+            boolean isInRound = userObj.getBool("isSkip") == false;
+            if (uId.equals(userId)) {
+                myCards = uCards;
+            } else if (myCards != null) {
+                if (op1Cards == null) {
+                    op1Cards = uCards;
+                    op1inRound = isInRound;
+                } else if (op2Cards == null) {
+                    op2Cards = uCards;
+                    op2inRound = isInRound;
+                } else {
+                    op3Cards = uCards;
+                    op3inRound = isInRound;
+                }
+            }
+        }
+
+        for (int i = 0; i < arr.size(); i++) {
+            ISFSObject userObj = arr.getSFSObject(i);
+            String uId = userObj.getUtfString("userId");
+            byte[] uCards = convertShortArray(new ArrayList(userObj.getShortArray("arrCards")));
+            boolean isInRound = userObj.getBool("isSkip") == false;
+            if (op3Cards != null || uId.equals(userId)) {
+                break;
+            } else if (myCards != null) {
+                if (op1Cards == null) {
+                    op1Cards = uCards;
+                    op1inRound = isInRound;
+                } else if (op2Cards == null) {
+                    op2Cards = uCards;
+                    op2inRound = isInRound;
+                } else {
+                    op3Cards = uCards;
+                    op3inRound = isInRound;
+                }
+            }
+        }
+
+//        if (movedCards != null) {
+//            System.out.println();
+//            System.out.print("currentCards: ");
+//            for (byte id : movedCards) {
+//                System.out.print(id + " ");
+//            }
+//        }
+//        if (myCards != null) {
+//            System.out.println();
+//            System.out.print("bot cards: ");
+//            for (byte id : myCards) {
+//                System.out.print(id + " ");
+//            }
+//        }
+//        System.out.println();
+//        System.out.print("user cards: ");
+//        for (byte id : op1Cards) {
+//            System.out.print(id + " ");
+//        }
+        movedCards = TldlBot.getCards(movedCards, myCards, op1Cards, op2Cards, op3Cards, op1inRound, op2inRound, op3inRound, false, true);
+        Utils.sleepRandom(5000, 7000);
+        if (movedCards != null && movedCards.length > 0) {
+            sendTienLenMove(movedCards);
+        } else {
+            sendTienLenSkip();
+        }
+    }
+    
+    private void sendTienLenMove(byte[] cards) {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, SFSAction.MOVE);
+        sfsObj.putShortArray("cards", convertByteArray(cards));
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, roomGame));
+    }
+    
+    private void sendTienLenSkip() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, SFSAction.SKIP);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, roomGame));
+    }
+    
+    private byte[] convertShortArray(List<Short> listCard) {
+        byte[] cards = new byte[listCard.size()];
+        for (int i = 0; i < listCard.size(); i++) {
+            cards[i] = listCard.get(i).byteValue();
+        }
+        return cards;
+    }
+    
+    private List<Short> convertByteArray(byte[] cards) {
+        List<Short> list = new ArrayList<>();
+        for (byte card : cards) {
+            list.add(new Short(card));
+        }
+        return list;
+    }
+    
     @Override
     public void dispatch(BaseEvent e) throws SFSException {
         switch (e.getType()) {
@@ -246,6 +508,21 @@ public class SFSBot implements IEventListener {
                 LOGGER.info(userId + " join room: " + room.getName());
                 if (room.isGame()) {
                     roomGame = room;
+                    sendAutoBuyin();
+                    if (room.getVariable("ID_OWNER") != null) {
+                        String ownerId = room.getVariable("ID_OWNER").getStringValue();
+                        isOwner = ownerId.equals(userId);
+                    } else {
+                        isOwner = true;
+                    }
+
+                    gameTimer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            sendContinueGame();
+                        }
+                    }, 0, 5000);
+
                 } else {
                     roomLobby = room;
                     if (isRunning) {
@@ -361,7 +638,7 @@ public class SFSBot implements IEventListener {
     }
 
     public void buyStack(double betMoney) {
-        int n = 10;
+        int n = 30;
         double stackMoney = (n * betMoney) + Utils.nextInt((int)betMoney);
         SFSObject sfsObj = new SFSObject();
         sfsObj.putInt(SFSKey.ACTION_INCORE, SFSAction.BUY_STACK_IN_LOBBY);
@@ -440,6 +717,23 @@ public class SFSBot implements IEventListener {
             LOGGER.error(userId + " " + userId, e);
         }
 
+    }
+
+    private void sendQuickPlay() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, SFSAction.QUICK_PLAY);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, roomGame));
+    }
+    
+    private void sendAutoBuyin() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, SFSAction.AUTO_BUY_IN);
+        sfsObj.putBool("isAutoBuyIn", true);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, roomGame));
+    }
+    
+    private void sendContinueGame() {
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, pingObj, roomGame));
     }
 
     public boolean canBuyStack(double betMoney) {
@@ -589,7 +883,4 @@ public class SFSBot implements IEventListener {
         return config;
     }
     
-    public static void main(String[] args) throws Exception {
-        new SFSBot("010907782672");
-    }
 }

@@ -207,28 +207,11 @@ public class BotManager {
     }
 
     public void start() throws IOException {
-        String s = Configs.getInstance().getListBot();
-        JsonObject json = GsonUtil.parse(s).getAsJsonObject();
-
-        String email = json.get("email").getAsString();
-
-        int amount;
-        List<String> emails = null;
-        if (email.isEmpty()) {
-            emails = Files.readAllLines(Paths.get("conf/", "email.txt"));
-            amount = emails.size();
-        } else {
-            amount = json.get("amount").getAsInt();
+        String[] userIds = Configs.getInstance().getListBot().split(";");
+        for (String userId : userIds) {
+            SFSBot bot = new SFSBot(userId);
+            bot.start();
         }
-        
-        for (int i = 0; i < amount; i++) {
-            String botEmail = emails != null ? emails.get(i) : getEmail(email, i + 1);
-            SFSBot bot = new SFSBot(botEmail);
-            if (bot.start()) {
-                BOT.add(bot);
-            }
-        }
-        startMonitor();
     }
 
     public boolean haveUser(List<String> userIds, byte serviceId) {

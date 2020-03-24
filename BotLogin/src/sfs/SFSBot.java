@@ -138,7 +138,7 @@ public class SFSBot implements IEventListener {
                 moneyType = Service.getMoneyType(userType);
 //                config = Database.INSTANCE.getBotConfig(serviceId, moneyType);
                 setMoneyType();
-//                changeUsername();
+                changeUsername();
 //                updateSchedule();
 //                new Timer().schedule(new TimerTask() {
 //                    @Override
@@ -169,7 +169,7 @@ public class SFSBot implements IEventListener {
 
             case SFSAction.LOBBY_LIST_COUNTER:
                 bets = sfsObj.getDoubleArray(SFSKey.LIST_BET_BOARD).toArray();
-                betMoney = (double) bets[Utils.nextInt(bets.length)];
+                betMoney = (double) bets[0];
                 LOGGER.info(userId + " buy stack from lobby " + betMoney);
                 buyStack(betMoney);
                 break;
@@ -251,6 +251,18 @@ public class SFSBot implements IEventListener {
                 }
                 break;
             case SFSAction.LEAVE_GAME:
+                String leaveId = sfsObj.getUtfString(SFSKey.USER_ID);
+                if (!leaveId.equals(userId)) {
+                    userIds.remove(leaveId);
+                    userSeats.remove(leaveId);
+                    if (!isStartGame) {
+                        if (countUser() == 0) {
+                            LOGGER.info(userId + " all user leave room " + roomName);
+                            changeUsername();
+                            leaveGame();
+                        }
+                    }
+                }
                 break;
             case SFSAction.STOP_GAME:
                 sendQuickPlay();
@@ -545,7 +557,10 @@ public class SFSBot implements IEventListener {
             case SFSEvent.USER_EXIT_ROOM:
                 User user = (User) e.getArguments().get("user");
                 if (user.isItMe()) {
-                    
+                    room = (Room) e.getArguments().get("room");
+                    if (room.isGame()) {
+                        getListBetMoney();
+                    }
                 }
                 break;
 
@@ -673,6 +688,12 @@ public class SFSBot implements IEventListener {
     public void leaveLobby() {
         sfs.send(new LeaveRoomRequest());
     }
+    
+    private void leaveGame() {
+        SFSObject sfsObj = new SFSObject();
+        sfsObj.putInt(SFSKey.ACTION_INGAME, SFSAction.LEAVE_GAME);
+        sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST_INGAME, sfsObj, roomGame));
+    }
 
     private void sendPingRequest() {
         if (!sfs.isConnected()) {
@@ -714,7 +735,7 @@ public class SFSBot implements IEventListener {
             sfsObj.putUtfString(SFSKey.DISPLAY_NAME, name);
             sfs.send(new ExtensionRequest(SFSCommand.CLIENT_REQUEST, sfsObj));
         } catch (Exception e) {
-            LOGGER.error(userId + " " + userId, e);
+            LOGGER.error(userId + " change username", e);
         }
 
     }
@@ -882,5 +903,15 @@ public class SFSBot implements IEventListener {
     public BotConfig getConfig() {
         return config;
     }
-    
+
+    private int countUser() {
+        int count = 0;
+        List<User> users = roomGame.getUserList();
+        for (User user : users) {
+            if (!Utils.isBot(user)) {
+                count++;
+            }
+        }
+        return count;
+    }    
 }
